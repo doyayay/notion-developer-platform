@@ -1,133 +1,585 @@
-import Link from "next/link";
+"use client";
 
-const workflowSteps = [
-  { step: 1, emoji: "🧑", actor: "사람", title: "PRD 작성", desc: "Notion PRD Database에 기능 스펙을 작성하고 상태를 In Development로 설정합니다.", auto: false },
-  { step: 2, emoji: "🤖", actor: "AI + 사람", title: "코드 구현", desc: "Claude Code가 Notion PRD를 읽고 코드를 작성합니다. 개발자가 리뷰 후 GitHub PR을 생성합니다.", auto: false },
-  { step: 3, emoji: "🧑", actor: "사람", title: "PR Merge", desc: "개발자가 PR을 리뷰하고 직접 Merge 버튼을 클릭합니다. 이 시점부터 이하 모든 과정이 자동입니다.", highlight: true, auto: false },
-  { step: 4, emoji: "⚡", actor: "Worker (자동)", title: "Notion PRD 자동 업데이트", desc: "GitHub Webhook → Worker 트리거 → PRD 상태를 Implemented로 변경하고 PR 링크와 Commit Summary를 기입합니다. LLM 비용 0원.", auto: true },
-  { step: 5, emoji: "🤖", actor: "Agent (자동)", title: "테스트 케이스 자동 생성", desc: "상태 변경을 트리거로 QA Agent가 PRD 내용과 Commit Summary를 읽고 Test Cases DB에 테스트 케이스 3~5개를 생성합니다.", auto: true },
-];
+import { useState, useCallback, useEffect } from "react";
 
-const capabilities = [
-  { icon: "🛠️", title: "Agent Tools", badge: "Generally Available", color: "bg-green-100 text-green-700", desc: "Notion 에이전트가 호출할 수 있는 커스텀 함수를 정의합니다. 스키마와 실행 로직을 함께 선언하면 에이전트가 적절한 시점에 자동으로 호출합니다." },
-  { icon: "🔐", title: "OAuth", badge: "Generally Available", color: "bg-green-100 text-green-700", desc: "3-legged OAuth 플로우를 Workers 위에서 처리합니다. 외부 서비스와의 연동에 필요한 액세스 토큰을 안전하게 관리합니다." },
-  { icon: "🔄", title: "Syncs", badge: "Private Alpha", color: "bg-gray-100 text-gray-500", desc: "외부 데이터 소스를 Notion 데이터베이스와 주기적으로 동기화합니다." },
-  { icon: "⚙️", title: "Automations", badge: "Private Alpha", color: "bg-gray-100 text-gray-500", desc: "Notion 내 이벤트를 트리거로 자동화 로직을 실행합니다." },
-];
+// ─── Types ───────────────────────────────────────────────────────────────────
 
-export default function Workers() {
+type CopySize = "sm" | "md";
+type CopyPosition = "inline" | "overlay";
+
+interface CopyButtonProps {
+  text: string;
+  size?: CopySize;
+  position?: CopyPosition;
+  label?: string;
+}
+
+interface ToastItem {
+  id: number;
+  message: string;
+  type: "success" | "error";
+}
+
+// ─── Clipboard Utility ───────────────────────────────────────────────────────
+
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    // Fallback: execCommand
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    const success = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return success;
+  } catch {
+    return false;
+  }
+}
+
+// ─── Toast Store (simple in-component) ───────────────────────────────────────
+
+let toastId = 0;
+
+// ─── CopyButton Component ─────────────────────────────────────────────────────
+
+function CopyButton({
+  text,
+  size = "md",
+  position = "inline",
+  label,
+  onCopy,
+}: CopyButtonProps & { onCopy?: (success: boolean) => void }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const success = await copyToClipboard(text);
+      onCopy?.(success);
+      if (success) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    },
+    [text, onCopy]
+  );
+
+  const sizeClasses =
+    size === "sm"
+      ? "h-6 w-6 text-xs"
+      : "h-8 w-8 text-sm";
+
+  const positionClasses =
+    position === "overlay"
+      ? "absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+      : "inline-flex flex-shrink-0";
+
   return (
-    <div className="max-w-4xl mx-auto px-6 py-16">
-      <div className="mb-14">
-        <span className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Workers</span>
-        <h1 className="text-4xl font-bold text-gray-900 mt-2 mb-4">Notion Workers</h1>
-        <p className="text-lg text-gray-600 leading-relaxed">
-          Workers는 Notion 위에서 실행되는 서버리스 함수입니다. 에이전트 도구, OAuth, 자동화 등 다양한 capability를 선언하고 배포하면 Notion이 적절한 시점에 실행합니다.
+    <button
+      onClick={handleCopy}
+      aria-label={copied ? "Copied!" : `Copy ${label ?? "to clipboard"}`}
+      title={copied ? "Copied!" : "Copy to clipboard"}
+      className={`
+        ${positionClasses}
+        ${sizeClasses}
+        items-center justify-center rounded-md
+        bg-zinc-800 hover:bg-zinc-700
+        dark:bg-zinc-700 dark:hover:bg-zinc-600
+        text-zinc-400 hover:text-zinc-100
+        border border-zinc-700 dark:border-zinc-600
+        transition-all duration-150 cursor-pointer
+        focus:outline-none focus:ring-2 focus:ring-zinc-500
+        z-10
+      `}
+    >
+      {copied ? "✅" : "📋"}
+    </button>
+  );
+}
+
+// ─── Toast Component ──────────────────────────────────────────────────────────
+
+function ToastContainer({ toasts }: { toasts: ToastItem[] }) {
+  return (
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none">
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          className={`
+            flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium
+            transition-all duration-300 pointer-events-auto
+            ${
+              t.type === "success"
+                ? "bg-zinc-900 border border-zinc-700 text-zinc-100"
+                : "bg-red-950 border border-red-800 text-red-200"
+            }
+          `}
+        >
+          <span>{t.type === "success" ? "✅" : "❌"}</span>
+          <span>{t.message}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── CopyField Component ──────────────────────────────────────────────────────
+
+function CopyField({
+  label,
+  value,
+  sensitive = false,
+  onCopy,
+}: {
+  label: string;
+  value: string;
+  sensitive?: boolean;
+  onCopy: (success: boolean) => void;
+}) {
+  const [revealed, setRevealed] = useState(false);
+  const display = sensitive && !revealed ? "•".repeat(Math.min(value.length, 32)) : value;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+        {label}
+      </span>
+      <div className="group relative flex items-center gap-2 bg-zinc-900 dark:bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3">
+        <code className="flex-1 text-sm text-zinc-200 font-mono truncate select-all">
+          {display}
+        </code>
+        {sensitive && (
+          <button
+            onClick={() => setRevealed((r) => !r)}
+            className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0 px-1"
+          >
+            {revealed ? "Hide" : "Show"}
+          </button>
+        )}
+        <CopyButton text={value} size="sm" position="inline" label={label} onCopy={onCopy} />
+      </div>
+    </div>
+  );
+}
+
+// ─── EndpointRow Component ────────────────────────────────────────────────────
+
+function EndpointRow({
+  method,
+  url,
+  description,
+  onCopy,
+}: {
+  method: string;
+  url: string;
+  description: string;
+  onCopy: (success: boolean) => void;
+}) {
+  const methodColors: Record<string, string> = {
+    GET: "bg-emerald-950 text-emerald-400 border-emerald-800",
+    POST: "bg-blue-950 text-blue-400 border-blue-800",
+    PATCH: "bg-amber-950 text-amber-400 border-amber-800",
+    DELETE: "bg-red-950 text-red-400 border-red-800",
+  };
+
+  return (
+    <div className="group relative flex items-center gap-3 bg-zinc-900 dark:bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 hover:border-zinc-700 transition-colors">
+      <span
+        className={`text-xs font-bold px-2 py-0.5 rounded-md border flex-shrink-0 font-mono ${
+          methodColors[method] ?? "bg-zinc-800 text-zinc-300 border-zinc-700"
+        }`}
+      >
+        {method}
+      </span>
+      <code className="flex-1 text-sm text-zinc-200 font-mono truncate">{url}</code>
+      <span className="text-xs text-zinc-500 hidden sm:block flex-shrink-0 max-w-[140px] truncate">
+        {description}
+      </span>
+      <CopyButton text={url} size="sm" position="inline" label="endpoint" onCopy={onCopy} />
+    </div>
+  );
+}
+
+// ─── TableCell Component ──────────────────────────────────────────────────────
+
+function CopyableCell({
+  value,
+  onCopy,
+}: {
+  value: string;
+  onCopy: (success: boolean) => void;
+}) {
+  return (
+    <td className="group relative px-4 py-3 text-sm text-zinc-300 font-mono">
+      <div className="flex items-center gap-2">
+        <span className="truncate max-w-[180px]">{value}</span>
+        <CopyButton text={value} size="sm" position="inline" onCopy={onCopy} />
+      </div>
+    </td>
+  );
+}
+
+// ─── Section Card ─────────────────────────────────────────────────────────────
+
+function SectionCard({
+  title,
+  badge,
+  children,
+}: {
+  title: string;
+  badge?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-zinc-900 dark:bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden">
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-zinc-800">
+        <h2 className="text-base font-semibold text-zinc-100">{title}</h2>
+        {badge && (
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
+            {badge}
+          </span>
+        )}
+      </div>
+      <div className="px-6 py-5">{children}</div>
+    </div>
+  );
+}
+
+// ─── Inline Code Snippet ──────────────────────────────────────────────────────
+
+function InlineSnippet({
+  code,
+  onCopy,
+}: {
+  code: string;
+  onCopy: (success: boolean) => void;
+}) {
+  return (
+    <div className="group relative flex items-center gap-2 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3">
+      <pre className="flex-1 text-sm text-emerald-400 font-mono overflow-x-auto whitespace-pre-wrap break-all">
+        {code}
+      </pre>
+      <CopyButton text={code} size="md" position="inline" label="code snippet" onCopy={onCopy} />
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function WorkersPage() {
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+
+  const addToast = useCallback((success: boolean) => {
+    const id = ++toastId;
+    setToasts((prev) => [
+      ...prev,
+      {
+        id,
+        message: success ? "Copied to clipboard!" : "Copy failed. Please try again.",
+        type: success ? "success" : "error",
+      },
+    ]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3000);
+  }, []);
+
+  // Dismiss toasts on unmount
+  useEffect(() => () => setToasts([]), []);
+
+  // ── Demo Data ──────────────────────────────────────────────────────────────
+
+  const endpoints = [
+    { method: "GET", url: "https://api.notion.com/v1/pages/{page_id}", description: "Retrieve a page" },
+    { method: "POST", url: "https://api.notion.com/v1/pages", description: "Create a page" },
+    { method: "PATCH", url: "https://api.notion.com/v1/pages/{page_id}", description: "Update a page" },
+    { method: "DELETE", url: "https://api.notion.com/v1/blocks/{block_id}", description: "Delete a block" },
+    { method: "GET", url: "https://api.notion.com/v1/databases/{database_id}", description: "Retrieve a database" },
+  ];
+
+  const authFields = [
+    { label: "API Key", value: "YOUR_API_KEY", sensitive: true },
+    { label: "Integration Token", value: "secret_YOUR_INTEGRATION_TOKEN_HERE", sensitive: true },
+    { label: "OAuth Client ID", value: "YOUR_OAUTH_CLIENT_ID", sensitive: false },
+    { label: "Redirect URI", value: "https://your-app.example.com/auth/callback", sensitive: false },
+  ];
+
+  const tableData = [
+    { name: "Main Workspace DB", id: "YOUR_DATABASE_ID_1", type: "Database", status: "Active" },
+    { name: "Tasks Collection", id: "YOUR_DATABASE_ID_2", type: "Collection", status: "Active" },
+    { name: "Archive Store", id: "YOUR_DATABASE_ID_3", type: "Database", status: "Archived" },
+    { name: "Dev Sandbox", id: "YOUR_DATABASE_ID_4", type: "Collection", status: "Draft" },
+  ];
+
+  const snippets = [
+    {
+      label: "Install SDK",
+      code: `npm install @notionhq/client`,
+    },
+    {
+      label: "Initialize Client",
+      code: `import { Client } from "@notionhq/client";\n\nconst notion = new Client({\n  auth: process.env.NOTION_API_KEY,\n});`,
+    },
+    {
+      label: "Query Database",
+      code: `const response = await notion.databases.query({\n  database_id: process.env.NOTION_DATABASE_ID,\n  filter: {\n    property: "Status",\n    select: { equals: "Active" },\n  },\n});`,
+    },
+  ];
+
+  const statusColors: Record<string, string> = {
+    Active: "text-emerald-400",
+    Archived: "text-zinc-500",
+    Draft: "text-amber-400",
+  };
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 py-10 px-4">
+      {/* Header */}
+      <div className="max-w-4xl mx-auto mb-10">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="h-8 w-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-base">
+            📋
+          </div>
+          <span className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">
+            Component Showcase
+          </span>
+        </div>
+        <h1 className="text-3xl font-bold text-zinc-50 tracking-tight mb-2">
+          Copy 기능 데모
+        </h1>
+        <p className="text-zinc-400 text-sm leading-relaxed max-w-2xl">
+          API 엔드포인트 URL, 인증 토큰, 테이블 셀 값, 코드 스니펫 등 다양한 콘텐츠를
+          클릭 한 번으로 클립보드에 복사할 수 있습니다. 복사 성공·실패 시 토스트 알림이
+          표시됩니다.
         </p>
       </div>
 
-      {/* Workflow */}
-      <section className="mb-16">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">워크플로우 예시</h2>
-        <p className="text-sm text-gray-500 mb-8">PR Merge 이후의 모든 과정을 자동화할 수 있습니다.</p>
-        <div className="space-y-4">
-          {workflowSteps.map((s) => (
-            <div key={s.step} className={`flex gap-5 p-5 rounded-2xl border ${s.highlight ? "border-black bg-gray-50" : s.auto ? "border-blue-100 bg-blue-50" : "border-gray-200 bg-white"}`}>
-              <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${s.auto ? "bg-blue-600 text-white" : "bg-black text-white"}`}>{s.step}</div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span>{s.emoji}</span>
-                  <span className="text-xs text-gray-400">{s.actor}</span>
-                  {s.auto && <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-medium">자동</span>}
-                </div>
-                <h3 className="font-semibold text-gray-900 mb-1">{s.title}</h3>
-                <p className="text-sm text-gray-600 leading-relaxed">{s.desc}</p>
+      <div className="max-w-4xl mx-auto flex flex-col gap-8">
+        {/* ── Section 1: API Endpoints ───────────────────────────────────── */}
+        <SectionCard title="API Reference" badge="Endpoints">
+          <p className="text-sm text-zinc-500 mb-4">
+            각 엔드포인트 URL의 📋 버튼을 클릭하면 전체 URL이 클립보드에 복사됩니다.
+          </p>
+          <div className="flex flex-col gap-2">
+            {endpoints.map((ep) => (
+              <EndpointRow
+                key={ep.url}
+                method={ep.method}
+                url={ep.url}
+                description={ep.description}
+                onCopy={addToast}
+              />
+            ))}
+          </div>
+        </SectionCard>
+
+        {/* ── Section 2: Auth / Sensitive Fields ────────────────────────── */}
+        <SectionCard title="Authentication" badge="Tokens & Secrets">
+          <p className="text-sm text-zinc-500 mb-4">
+            민감 정보는 기본적으로 마스킹되며, Show 버튼으로 확인하거나 그대로 복사할 수
+            있습니다.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {authFields.map((f) => (
+              <CopyField
+                key={f.label}
+                label={f.label}
+                value={f.value}
+                sensitive={f.sensitive}
+                onCopy={addToast}
+              />
+            ))}
+          </div>
+        </SectionCard>
+
+        {/* ── Section 3: Table Data ──────────────────────────────────────── */}
+        <SectionCard title="Quickstart" badge="Database IDs">
+          <p className="text-sm text-zinc-500 mb-4">
+            테이블 셀의 ID 값을 직접 복사하여 환경 변수 설정에 활용하세요.
+          </p>
+          <div className="overflow-x-auto rounded-xl border border-zinc-800">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-zinc-900 border-b border-zinc-800">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                    Database ID
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {tableData.map((row, i) => (
+                  <tr
+                    key={row.id}
+                    className={`border-b border-zinc-800 last:border-0 hover:bg-zinc-900/60 transition-colors ${
+                      i % 2 === 0 ? "bg-zinc-950" : "bg-zinc-900/30"
+                    }`}
+                  >
+                    <td className="px-4 py-3 text-sm text-zinc-200 font-medium whitespace-nowrap">
+                      {row.name}
+                    </td>
+                    <CopyableCell value={row.id} onCopy={addToast} />
+                    <td className="px-4 py-3 text-sm text-zinc-400 whitespace-nowrap">
+                      {row.type}
+                    </td>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap">
+                      <span className={`font-medium ${statusColors[row.status] ?? "text-zinc-400"}`}>
+                        {row.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
+
+        {/* ── Section 4: Code Snippets ───────────────────────────────────── */}
+        <SectionCard title="Code Snippets" badge="Inline Copy">
+          <p className="text-sm text-zinc-500 mb-4">
+            설정 코드 스니펫을 바로 복사하여 프로젝트에 붙여넣으세요.
+          </p>
+          <div className="flex flex-col gap-4">
+            {snippets.map((s) => (
+              <div key={s.label} className="flex flex-col gap-1.5">
+                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                  {s.label}
+                </span>
+                <InlineSnippet code={s.code} onCopy={addToast} />
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        {/* ── Section 5: CopyButton Props Reference ─────────────────────── */}
+        <SectionCard title="CopyButton Props" badge="Component API">
+          <div className="overflow-x-auto rounded-xl border border-zinc-800">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-zinc-900 border-b border-zinc-800">
+                  {["Prop", "Type", "Default", "Description"].map((h) => (
+                    <th
+                      key={h}
+                      className="px-4 py-3 text-left text-xs font-semibold text-zinc-400 uppercase tracking-wider"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  {
+                    prop: "text",
+                    type: "string",
+                    def: "—",
+                    desc: "복사할 문자열 (필수)",
+                  },
+                  {
+                    prop: "size",
+                    type: '"sm" | "md"',
+                    def: '"md"',
+                    desc: "버튼 크기 (sm: 24px, md: 32px)",
+                  },
+                  {
+                    prop: "position",
+                    type: '"inline" | "overlay"',
+                    def: '"inline"',
+                    desc: "레이아웃 배치 방식",
+                  },
+                  {
+                    prop: "label",
+                    type: "string",
+                    def: "undefined",
+                    desc: "aria-label 및 title 보조 텍스트",
+                  },
+                  {
+                    prop: "onCopy",
+                    type: "(success: boolean) => void",
+                    def: "undefined",
+                    desc: "복사 성공/실패 콜백",
+                  },
+                ].map((row, i) => (
+                  <tr
+                    key={row.prop}
+                    className={`border-b border-zinc-800 last:border-0 ${
+                      i % 2 === 0 ? "bg-zinc-950" : "bg-zinc-900/30"
+                    }`}
+                  >
+                    <td className="px-4 py-3 font-mono text-emerald-400 whitespace-nowrap">
+                      {row.prop}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-blue-400 text-xs whitespace-nowrap">
+                      {row.type}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-amber-400 text-xs whitespace-nowrap">
+                      {row.def}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-400">{row.desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Live size/position demo */}
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                Size variants
+              </span>
+              <div className="flex items-center gap-3 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3">
+                <span className="text-xs text-zinc-500 font-mono">sm</span>
+                <CopyButton text="Small copy button demo" size="sm" position="inline" onCopy={addToast} />
+                <span className="text-xs text-zinc-500 font-mono ml-4">md</span>
+                <CopyButton text="Medium copy button demo" size="md" position="inline" onCopy={addToast} />
               </div>
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Code Example */}
-      <section className="mb-16">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">코드 예제</h2>
-        <p className="text-sm text-gray-500 mb-6">GitHub PR이 merge되면 Notion PRD 상태를 자동으로 업데이트하는 Worker입니다.</p>
-        <pre className="bg-gray-950 text-gray-100 rounded-xl p-5 text-sm overflow-x-auto leading-relaxed">
-          <code>{`import { Worker } from "@notionhq/workers";
-import * as j from "@notionhq/workers/schema-builder";
-
-const worker = new Worker();
-export default worker;
-
-worker.tool("updatePrdOnMerge", {
-  title: "Update PRD on PR Merge",
-  description: "PR이 merge되면 Notion PRD 상태를 Implemented로 업데이트합니다.",
-  schema: j.object({
-    pageId:        j.string().describe("PRD 페이지 ID"),
-    prUrl:         j.string().describe("merge된 GitHub PR URL"),
-    commitSummary: j.string().describe("커밋 요약"),
-  }),
-  execute: async ({ pageId, prUrl, commitSummary }, { notion }) => {
-    await notion.pages.update({
-      page_id: pageId,
-      properties: {
-        "상태":          { status: { name: "Implemented" } },
-        "GitHub PR":     { url: prUrl },
-        "Commit Summary": { rich_text: [{ text: { content: commitSummary } }] },
-      },
-    });
-    return "PRD updated successfully";
-  },
-});`}</code>
-        </pre>
-      </section>
-
-      {/* Capabilities */}
-      <section className="mb-16">
-        <h2 className="text-2xl font-bold text-gray-900 mb-8">Capabilities</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          {capabilities.map((c) => (
-            <div key={c.title} className="border border-gray-200 rounded-2xl p-6 hover:shadow-sm transition-shadow">
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-2xl">{c.icon}</span>
-                <div>
-                  <h3 className="font-semibold text-gray-900">{c.title}</h3>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${c.color}`}>{c.badge}</span>
-                </div>
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                Overlay position (hover me)
+              </span>
+              <div className="group relative bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3">
+                <span className="text-sm text-zinc-300 font-mono">
+                  Hover to reveal copy button →
+                </span>
+                <CopyButton
+                  text="Overlay position demo text"
+                  size="sm"
+                  position="overlay"
+                  onCopy={addToast}
+                />
               </div>
-              <p className="text-sm text-gray-600 leading-relaxed">{c.desc}</p>
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+        </SectionCard>
 
-      {/* Getting Started */}
-      <section className="mb-10">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">시작하기</h2>
-        <div className="space-y-4">
-          {[
-            { label: "1. CLI 설치", code: "npm install -g @notionhq/ntn" },
-            { label: "2. 워크스페이스 연결", code: "ntn login" },
-            { label: "3. 배포", code: "ntn workers deploy" },
-          ].map(({ label, code }) => (
-            <div key={label}>
-              <p className="text-sm font-medium text-gray-700 mb-2">{label}</p>
-              <pre className="bg-gray-950 text-gray-100 rounded-xl p-4 text-sm overflow-x-auto">
-                <code>{code}</code>
-              </pre>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <div className="p-6 bg-gray-50 rounded-2xl border border-gray-200">
-        <h3 className="font-semibold text-gray-900 mb-2">더 알아보기</h3>
-        <p className="text-sm text-gray-600 mb-4">Workers SDK 전체 레퍼런스와 예제는 공식 문서에서 확인하세요.</p>
-        <div className="flex flex-wrap gap-3">
-          <a href="https://developers.notion.com/docs/workers" target="_blank" rel="noopener noreferrer" className="inline-block bg-black text-white text-sm px-5 py-2.5 rounded-full hover:bg-gray-800 transition-colors">공식 문서 →</a>
-          <Link href="/docs" className="inline-block border border-gray-300 text-gray-700 text-sm px-5 py-2.5 rounded-full hover:bg-gray-50 transition-colors">Core Concepts</Link>
+        {/* Footer note */}
+        <div className="text-center text-xs text-zinc-600 pb-4">
+          CopyButton은{" "}
+          <code className="font-mono text-zinc-500">app/components/CopyButton.tsx</code>
+          로 분리하여 전체 앱에서 재사용할 수 있습니다.
         </div>
       </div>
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} />
     </div>
   );
 }
