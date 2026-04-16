@@ -1,0 +1,43 @@
+name: Update Notion PRD on Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  update-prd:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract Notion page ID from PR body
+        id: extract
+        run: |
+          PAGE_ID=$(echo "${{ github.event.pull_request.body }}" | grep -oP '(?<=<!-- notion-prd-page-id: )[\w-]+(?= -->)')
+          echo "page_id=$PAGE_ID" >> $GITHUB_OUTPUT
+          echo "pr_url=${{ github.event.pull_request.html_url }}" >> $GITHUB_OUTPUT
+          echo "commit_summary=${{ github.event.pull_request.title }}" >> $GITHUB_OUTPUT
+
+      - name: Skip if no Notion page ID
+        if: steps.extract.outputs.page_id == ''
+        run: |
+          echo "No Notion page ID found in PR body. Skipping."
+          exit 0
+
+      - name: Install ntn CLI
+        if: steps.extract.outputs.page_id != ''
+        run: npm install -g @notionhq/ntn
+
+      - name: Run updatePrdOnMerge worker tool
+        if: steps.extract.outputs.page_id != ''
+        env:
+          NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
+          NOTION_WORKER_ID: ${{ secrets.NOTION_WORKER_ID }}
+        run: |
+          ntn workers exec updatePrdOnMerge \
+            --worker-id "$NOTION_WORKER_ID" \
+            -d '{
+              "pageId": "${{ steps.extract.outputs.page_id }}",
+              "prUrl": "${{ steps.extract.outputs.pr_url }}",
+              "commitSummary": "${{ steps.extract.outputs.commit_summary }}"
+            }'
