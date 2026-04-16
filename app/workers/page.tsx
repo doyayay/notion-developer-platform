@@ -1,133 +1,353 @@
-import Link from "next/link";
+'use client';
 
-const workflowSteps = [
-  { step: 1, emoji: "🧑", actor: "사람", title: "PRD 작성", desc: "Notion PRD Database에 기능 스펙을 작성하고 상태를 In Development로 설정합니다.", auto: false },
-  { step: 2, emoji: "🤖", actor: "AI + 사람", title: "코드 구현", desc: "Claude Code가 Notion PRD를 읽고 코드를 작성합니다. 개발자가 리뷰 후 GitHub PR을 생성합니다.", auto: false },
-  { step: 3, emoji: "🧑", actor: "사람", title: "PR Merge", desc: "개발자가 PR을 리뷰하고 직접 Merge 버튼을 클릭합니다. 이 시점부터 이하 모든 과정이 자동입니다.", highlight: true, auto: false },
-  { step: 4, emoji: "⚡", actor: "Worker (자동)", title: "Notion PRD 자동 업데이트", desc: "GitHub Webhook → Worker 트리거 → PRD 상태를 Implemented로 변경하고 PR 링크와 Commit Summary를 기입합니다. LLM 비용 0원.", auto: true },
-  { step: 5, emoji: "🤖", actor: "Agent (자동)", title: "테스트 케이스 자동 생성", desc: "상태 변경을 트리거로 QA Agent가 PRD 내용과 Commit Summary를 읽고 Test Cases DB에 테스트 케이스 3~5개를 생성합니다.", auto: true },
-];
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { Check, Copy } from 'lucide-react';
 
-const capabilities = [
-  { icon: "🛠️", title: "Agent Tools", badge: "Generally Available", color: "bg-green-100 text-green-700", desc: "Notion 에이전트가 호출할 수 있는 커스텀 함수를 정의합니다. 스키마와 실행 로직을 함께 선언하면 에이전트가 적절한 시점에 자동으로 호출합니다." },
-  { icon: "🔐", title: "OAuth", badge: "Generally Available", color: "bg-green-100 text-green-700", desc: "3-legged OAuth 플로우를 Workers 위에서 처리합니다. 외부 서비스와의 연동에 필요한 액세스 토큰을 안전하게 관리합니다." },
-  { icon: "🔄", title: "Syncs", badge: "Private Alpha", color: "bg-gray-100 text-gray-500", desc: "외부 데이터 소스를 Notion 데이터베이스와 주기적으로 동기화합니다." },
-  { icon: "⚙️", title: "Automations", badge: "Private Alpha", color: "bg-gray-100 text-gray-500", desc: "Notion 내 이벤트를 트리거로 자동화 로직을 실행합니다." },
-];
+interface CopyButtonProps {
+  text: string;
+  size?: 'sm' | 'md';
+  position?: 'inline' | 'overlay';
+  onCopySuccess?: () => void;
+  onCopyError?: () => void;
+}
 
-export default function Workers() {
+const CopyButton = ({
+  text,
+  size = 'md',
+  position = 'inline',
+  onCopySuccess,
+  onCopyError,
+}: CopyButtonProps) => {
+  const [isCopied, setIsCopied] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleCopy = useCallback(async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+
+      setIsCopied(true);
+      onCopySuccess?.();
+
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
+      timeoutRef.current = setTimeout(() => {
+        setIsCopied(false);
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+      onCopyError?.();
+    }
+  }, [text, onCopySuccess, onCopyError]);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  const sizeClasses = {
+    sm: 'w-5 h-5 p-0.5',
+    md: 'w-6 h-6 p-1',
+  };
+
+  const iconSize = size === 'sm' ? 16 : 20;
+
   return (
-    <div className="max-w-4xl mx-auto px-6 py-16">
-      <div className="mb-14">
-        <span className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Workers</span>
-        <h1 className="text-4xl font-bold text-gray-900 mt-2 mb-4">Notion Workers</h1>
-        <p className="text-lg text-gray-600 leading-relaxed">
-          Workers는 Notion 위에서 실행되는 서버리스 함수입니다. 에이전트 도구, OAuth, 자동화 등 다양한 capability를 선언하고 배포하면 Notion이 적절한 시점에 실행합니다.
-        </p>
-      </div>
+    <button
+      onClick={handleCopy}
+      className={`${sizeClasses[size]} flex items-center justify-center rounded-md transition-all duration-200 bg-gray-700 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-300 hover:text-white dark:text-gray-400 dark:hover:text-gray-200`}
+      title="Copy to clipboard"
+      aria-label="Copy to clipboard"
+    >
+      {isCopied ? (
+        <Check size={iconSize} className="text-green-400" />
+      ) : (
+        <Copy size={iconSize} />
+      )}
+    </button>
+  );
+};
 
-      {/* Workflow */}
-      <section className="mb-16">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">워크플로우 예시</h2>
-        <p className="text-sm text-gray-500 mb-8">PR Merge 이후의 모든 과정을 자동화할 수 있습니다.</p>
-        <div className="space-y-4">
-          {workflowSteps.map((s) => (
-            <div key={s.step} className={`flex gap-5 p-5 rounded-2xl border ${s.highlight ? "border-black bg-gray-50" : s.auto ? "border-blue-100 bg-blue-50" : "border-gray-200 bg-white"}`}>
-              <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${s.auto ? "bg-blue-600 text-white" : "bg-black text-white"}`}>{s.step}</div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span>{s.emoji}</span>
-                  <span className="text-xs text-gray-400">{s.actor}</span>
-                  {s.auto && <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-medium">자동</span>}
-                </div>
-                <h3 className="font-semibold text-gray-900 mb-1">{s.title}</h3>
-                <p className="text-sm text-gray-600 leading-relaxed">{s.desc}</p>
-              </div>
-            </div>
-          ))}
+interface CopyableFieldProps {
+  label: string;
+  value: string;
+  type?: 'text' | 'url' | 'code' | 'token';
+}
+
+const CopyableField = ({ label, value, type = 'text' }: CopyableFieldProps) => {
+  return (
+    <div className="relative group">
+      <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800 dark:bg-gray-700 border border-gray-700 dark:border-gray-600">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">
+            {label}
+          </p>
+          <p className="text-sm font-mono text-gray-100 dark:text-gray-300 truncate">
+            {value}
+          </p>
         </div>
-      </section>
-
-      {/* Code Example */}
-      <section className="mb-16">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">코드 예제</h2>
-        <p className="text-sm text-gray-500 mb-6">GitHub PR이 merge되면 Notion PRD 상태를 자동으로 업데이트하는 Worker입니다.</p>
-        <pre className="bg-gray-950 text-gray-100 rounded-xl p-5 text-sm overflow-x-auto leading-relaxed">
-          <code>{`import { Worker } from "@notionhq/workers";
-import * as j from "@notionhq/workers/schema-builder";
-
-const worker = new Worker();
-export default worker;
-
-worker.tool("updatePrdOnMerge", {
-  title: "Update PRD on PR Merge",
-  description: "PR이 merge되면 Notion PRD 상태를 Implemented로 업데이트합니다.",
-  schema: j.object({
-    pageId:        j.string().describe("PRD 페이지 ID"),
-    prUrl:         j.string().describe("merge된 GitHub PR URL"),
-    commitSummary: j.string().describe("커밋 요약"),
-  }),
-  execute: async ({ pageId, prUrl, commitSummary }, { notion }) => {
-    await notion.pages.update({
-      page_id: pageId,
-      properties: {
-        "상태":          { status: { name: "Implemented" } },
-        "GitHub PR":     { url: prUrl },
-        "Commit Summary": { rich_text: [{ text: { content: commitSummary } }] },
-      },
-    });
-    return "PRD updated successfully";
-  },
-});`}</code>
-        </pre>
-      </section>
-
-      {/* Capabilities */}
-      <section className="mb-16">
-        <h2 className="text-2xl font-bold text-gray-900 mb-8">Capabilities</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          {capabilities.map((c) => (
-            <div key={c.title} className="border border-gray-200 rounded-2xl p-6 hover:shadow-sm transition-shadow">
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-2xl">{c.icon}</span>
-                <div>
-                  <h3 className="font-semibold text-gray-900">{c.title}</h3>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${c.color}`}>{c.badge}</span>
-                </div>
-              </div>
-              <p className="text-sm text-gray-600 leading-relaxed">{c.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Getting Started */}
-      <section className="mb-10">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">시작하기</h2>
-        <div className="space-y-4">
-          {[
-            { label: "1. CLI 설치", code: "npm install -g @notionhq/ntn" },
-            { label: "2. 워크스페이스 연결", code: "ntn login" },
-            { label: "3. 배포", code: "ntn workers deploy" },
-          ].map(({ label, code }) => (
-            <div key={label}>
-              <p className="text-sm font-medium text-gray-700 mb-2">{label}</p>
-              <pre className="bg-gray-950 text-gray-100 rounded-xl p-4 text-sm overflow-x-auto">
-                <code>{code}</code>
-              </pre>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <div className="p-6 bg-gray-50 rounded-2xl border border-gray-200">
-        <h3 className="font-semibold text-gray-900 mb-2">더 알아보기</h3>
-        <p className="text-sm text-gray-600 mb-4">Workers SDK 전체 레퍼런스와 예제는 공식 문서에서 확인하세요.</p>
-        <div className="flex flex-wrap gap-3">
-          <a href="https://developers.notion.com/docs/workers" target="_blank" rel="noopener noreferrer" className="inline-block bg-black text-white text-sm px-5 py-2.5 rounded-full hover:bg-gray-800 transition-colors">공식 문서 →</a>
-          <Link href="/docs" className="inline-block border border-gray-300 text-gray-700 text-sm px-5 py-2.5 rounded-full hover:bg-gray-50 transition-colors">Core Concepts</Link>
+        <div className="ml-3 opacity-0 group-hover:opacity-100 transition-opacity">
+          <CopyButton text={value} size="md" />
         </div>
       </div>
     </div>
   );
+};
+
+interface CopyableTableCellProps {
+  value: string;
 }
+
+const CopyableTableCell = ({ value }: CopyableTableCellProps) => {
+  return (
+    <div className="relative group flex items-center gap-2">
+      <span className="text-sm text-gray-100 dark:text-gray-300">{value}</span>
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+        <CopyButton text={value} size="sm" />
+      </div>
+    </div>
+  );
+};
+
+interface CopyableInlineCodeProps {
+  code: string;
+}
+
+const CopyableInlineCode = ({ code }: CopyableInlineCodeProps) => {
+  return (
+    <span className="relative group inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-800 dark:bg-gray-700 border border-gray-700 dark:border-gray-600">
+      <code className="text-sm font-mono text-gray-100 dark:text-gray-300">
+        {code}
+      </code>
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+        <CopyButton text={code} size="sm" />
+      </div>
+    </span>
+  );
+};
+
+export default function WorkersPage() {
+  const [copyFeedback, setCopyFeedback] = useState<{
+    message: string;
+    type: 'success' | 'error';
+  } | null>(null);
+
+  const handleCopySuccess = useCallback(() => {
+    setCopyFeedback({ message: '클립보드에 복사되었습니다', type: 'success' });
+    setTimeout(() => setCopyFeedback(null), 3000);
+  }, []);
+
+  const handleCopyError = useCallback(() => {
+    setCopyFeedback({ message: '복사에 실패했습니다', type: 'error' });
+    setTimeout(() => setCopyFeedback(null), 3000);
+  }, []);
+
+  return (
+    <main className="min-h-screen bg-gray-900 dark:bg-black py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="mb-12">
+          <h1 className="text-4xl font-bold text-white dark:text-gray-100 mb-2">
+            Workers
+          </h1>
+          <p className="text-gray-400 dark:text-gray-500">
+            클립보드 복사 기능이 포함된 페이지
+          </p>
+        </div>
+
+        {/* Toast Notification */}
+        {copyFeedback && (
+          <div
+            className={`fixed top-4 right-4 px-4 py-3 rounded-lg text-white text-sm font-medium transition-all duration-300 ${
+              copyFeedback.type === 'success'
+                ? 'bg-green-600 dark:bg-green-700'
+                : 'bg-red-600 dark:bg-red-700'
+            }`}
+          >
+            {copyFeedback.message}
+          </div>
+        )}
+
+        {/* API Endpoints Section */}
+        <section className="mb-12">
+          <div className="rounded-2xl bg-gray-800 dark:bg-gray-800 border border-gray-700 dark:border-gray-700 p-8">
+            <h2 className="text-2xl font-bold text-white dark:text-gray-100 mb-6">
+              API Endpoints
+            </h2>
+            <div className="space-y-4">
+              <div className="relative group">
+                <div className="flex items-center justify-between p-4 rounded-lg bg-gray-900 dark:bg-gray-900 border border-gray-700 dark:border-gray-600">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">
+                      List Pages
+                    </p>
+                    <p className="text-sm font-mono text-gray-100 dark:text-gray-300 truncate break-all">
+                      https://api.notion.com/v1/pages
+                    </p>
+                  </div>
+                  <div className="ml-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <CopyButton
+                      text="https://api.notion.com/v1/pages"
+                      size="md"
+                      onCopySuccess={handleCopySuccess}
+                      onCopyError={handleCopyError}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="relative group">
+                <div className="flex items-center justify-between p-4 rounded-lg bg-gray-900 dark:bg-gray-900 border border-gray-700 dark:border-gray-600">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">
+                      Create Database
+                    </p>
+                    <p className="text-sm font-mono text-gray-100 dark:text-gray-300 truncate break-all">
+                      https://api.notion.com/v1/databases
+                    </p>
+                  </div>
+                  <div className="ml-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <CopyButton
+                      text="https://api.notion.com/v1/databases"
+                      size="md"
+                      onCopySuccess={handleCopySuccess}
+                      onCopyError={handleCopyError}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Authentication Section */}
+        <section className="mb-12">
+          <div className="rounded-2xl bg-gray-800 dark:bg-gray-800 border border-gray-700 dark:border-gray-700 p-8">
+            <h2 className="text-2xl font-bold text-white dark:text-gray-100 mb-6">
+              Authentication
+            </h2>
+            <div className="space-y-4">
+              <CopyableField
+                label="API Key"
+                value="ntn_0123456789abcdef0123456789abcdef01"
+                type="token"
+              />
+              <CopyableField
+                label="Workspace ID"
+                value="a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                type="token"
+              />
+              <CopyableField
+                label="Database ID"
+                value="d1c2b3a4-5678-90ab-cdef-1234567890ab"
+                type="token"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Code Examples Section */}
+        <section className="mb-12">
+          <div className="rounded-2xl bg-gray-800 dark:bg-gray-800 border border-gray-700 dark:border-gray-700 p-8">
+            <h2 className="text-2xl font-bold text-white dark:text-gray-100 mb-6">
+              Code Examples
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-medium text-gray-300 dark:text-gray-400 mb-3">
+                  Import 문:
+                </p>
+                <CopyableInlineCode code="import { CopyButton } from '@/components/CopyButton'" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-300 dark:text-gray-400 mb-3">
+                  함수 호출:
+                </p>
+                <CopyableInlineCode code="navigator.clipboard.writeText(text)" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Table Example Section */}
+        <section className="mb-12">
+          <div className="rounded-2xl bg-gray-800 dark:bg-gray-800 border border-gray-700 dark:border-gray-700 p-8">
+            <h2 className="text-2xl font-bold text-white dark:text-gray-100 mb-6">
+              Configuration
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-700 dark:border-gray-600">
+                    <th className="text-left py-3 px-4 font-semibold text-gray-100 dark:text-gray-300">
+                      Parameter
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-100 dark:text-gray-300">
+                      Value
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-gray-700 dark:border-gray-600 hover:bg-gray-700 dark:hover:bg-gray-700 transition-colors">
+                    <td className="py-3 px-4 text-gray-400 dark:text-gray-500">
+                      API Version
+                    </td>
+                    <td className="py-3 px-4">
+                      <CopyableTableCell value="2024-08-15" />
+                    </td>
+                  </tr>
+                  <tr className="border-b border-gray-700 dark:border-gray-600 hover:bg-gray-700 dark:hover:bg-gray-700 transition-colors">
+                    <td className="py-3 px-4 text-gray-400 dark:text-gray-500">
+                      Timeout (ms)
+                    </td>
+                    <td className="py-3 px-4">
+                      <CopyableTableCell value="30000" />
+                    </td>
+                  </tr>
+                  <tr className="border-b border-gray-700 dark:border-gray-600 hover:bg-gray-700 dark:hover:bg-gray-700 transition-colors">
+                    <td className="py-3 px-4 text-gray-400 dark:text-gray-500">
+                      Rate Limit
+                    </td>
+                    <td className="py-3 px-4">
+                      <CopyableTableCell value="3 requests/second" />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        {/* Component Props Section */}
+        <section>
+          <div className="rounded-2xl bg-gray-800 dark:bg-gray-800 border border-gray-700 dark:border-gray-700 p-8">
+            <h2 className="text-2xl font-bold text-white dark:text-gray-100 mb-6">
+              CopyButton Props
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-700 dark:border-gray-600">
+                    <th className="text-left py-3 px-4 font-semibold text-gray-100 dark:text-gray-300">
+                      Prop
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-100 dark:text-gray-300">
+                      Type
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-100 dark:text-gray-300">
