@@ -1,4 +1,3 @@
-```typescript
 'use client';
 
 import { useState } from 'react';
@@ -167,3 +166,14 @@ export default function WorkersPage() {
 
           <section>
             <h2 className="text-2xl font-bold text-gray-950 dark:text-white mb-6">배포</h2>
+            <CodeBlock
+              language={codeBlocks[2].language}
+              title={codeBlocks[2].title}
+              code={codeBlocks[2].code}
+            />
+          </section>
+        </div>
+      </div>
+    </main>
+  );
+}
