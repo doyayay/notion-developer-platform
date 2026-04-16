@@ -1,133 +1,604 @@
-import Link from "next/link";
+"use client";
 
-const workflowSteps = [
-  { step: 1, emoji: "🧑", actor: "사람", title: "PRD 작성", desc: "Notion PRD Database에 기능 스펙을 작성하고 상태를 In Development로 설정합니다.", auto: false },
-  { step: 2, emoji: "🤖", actor: "AI + 사람", title: "코드 구현", desc: "Claude Code가 Notion PRD를 읽고 코드를 작성합니다. 개발자가 리뷰 후 GitHub PR을 생성합니다.", auto: false },
-  { step: 3, emoji: "🧑", actor: "사람", title: "PR Merge", desc: "개발자가 PR을 리뷰하고 직접 Merge 버튼을 클릭합니다. 이 시점부터 이하 모든 과정이 자동입니다.", highlight: true, auto: false },
-  { step: 4, emoji: "⚡", actor: "Worker (자동)", title: "Notion PRD 자동 업데이트", desc: "GitHub Webhook → Worker 트리거 → PRD 상태를 Implemented로 변경하고 PR 링크와 Commit Summary를 기입합니다. LLM 비용 0원.", auto: true },
-  { step: 5, emoji: "🤖", actor: "Agent (자동)", title: "테스트 케이스 자동 생성", desc: "상태 변경을 트리거로 QA Agent가 PRD 내용과 Commit Summary를 읽고 Test Cases DB에 테스트 케이스 3~5개를 생성합니다.", auto: true },
-];
+import { useState, useCallback, useEffect } from "react";
 
-const capabilities = [
-  { icon: "🛠️", title: "Agent Tools", badge: "Generally Available", color: "bg-green-100 text-green-700", desc: "Notion 에이전트가 호출할 수 있는 커스텀 함수를 정의합니다. 스키마와 실행 로직을 함께 선언하면 에이전트가 적절한 시점에 자동으로 호출합니다." },
-  { icon: "🔐", title: "OAuth", badge: "Generally Available", color: "bg-green-100 text-green-700", desc: "3-legged OAuth 플로우를 Workers 위에서 처리합니다. 외부 서비스와의 연동에 필요한 액세스 토큰을 안전하게 관리합니다." },
-  { icon: "🔄", title: "Syncs", badge: "Private Alpha", color: "bg-gray-100 text-gray-500", desc: "외부 데이터 소스를 Notion 데이터베이스와 주기적으로 동기화합니다." },
-  { icon: "⚙️", title: "Automations", badge: "Private Alpha", color: "bg-gray-100 text-gray-500", desc: "Notion 내 이벤트를 트리거로 자동화 로직을 실행합니다." },
-];
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-export default function Workers() {
+type CopySize = "sm" | "md";
+type CopyPosition = "inline" | "overlay";
+
+interface CopyButtonProps {
+  text: string;
+  size?: CopySize;
+  position?: CopyPosition;
+  label?: string;
+}
+
+interface ToastItem {
+  id: number;
+  message: string;
+  type: "success" | "error";
+}
+
+interface CopyFieldProps {
+  label: string;
+  value: string;
+  sensitive?: boolean;
+  size?: CopySize;
+}
+
+interface TableRow {
+  method: string;
+  endpoint: string;
+  description: string;
+}
+
+// ─── Clipboard Utility ────────────────────────────────────────────────────────
+
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    // Fallback: document.execCommand
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    const success = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return success;
+  } catch {
+    return false;
+  }
+}
+
+// ─── Toast Context / Store (local) ───────────────────────────────────────────
+
+let toastId = 0;
+
+function useToast() {
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+
+  const addToast = useCallback((message: string, type: "success" | "error") => {
+    const id = ++toastId;
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3000);
+  }, []);
+
+  return { toasts, addToast };
+}
+
+// ─── Toast Container ──────────────────────────────────────────────────────────
+
+function ToastContainer({ toasts }: { toasts: ToastItem[] }) {
   return (
-    <div className="max-w-4xl mx-auto px-6 py-16">
-      <div className="mb-14">
-        <span className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Workers</span>
-        <h1 className="text-4xl font-bold text-gray-900 mt-2 mb-4">Notion Workers</h1>
-        <p className="text-lg text-gray-600 leading-relaxed">
-          Workers는 Notion 위에서 실행되는 서버리스 함수입니다. 에이전트 도구, OAuth, 자동화 등 다양한 capability를 선언하고 배포하면 Notion이 적절한 시점에 실행합니다.
-        </p>
-      </div>
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none">
+      {toasts.map((toast) => (
+        <div
+          key={toast.id}
+          className={`
+            flex items-center gap-2 px-4 py-3 rounded-xl shadow-xl text-sm font-medium
+            backdrop-blur-sm border transition-all duration-300 animate-fade-in
+            ${
+              toast.type === "success"
+                ? "bg-gray-900/95 border-gray-700 text-green-400"
+                : "bg-gray-900/95 border-gray-700 text-red-400"
+            }
+          `}
+        >
+          <span>{toast.type === "success" ? "✅" : "❌"}</span>
+          <span className="text-gray-100">{toast.message}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-      {/* Workflow */}
-      <section className="mb-16">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">워크플로우 예시</h2>
-        <p className="text-sm text-gray-500 mb-8">PR Merge 이후의 모든 과정을 자동화할 수 있습니다.</p>
-        <div className="space-y-4">
-          {workflowSteps.map((s) => (
-            <div key={s.step} className={`flex gap-5 p-5 rounded-2xl border ${s.highlight ? "border-black bg-gray-50" : s.auto ? "border-blue-100 bg-blue-50" : "border-gray-200 bg-white"}`}>
-              <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${s.auto ? "bg-blue-600 text-white" : "bg-black text-white"}`}>{s.step}</div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span>{s.emoji}</span>
-                  <span className="text-xs text-gray-400">{s.actor}</span>
-                  {s.auto && <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-medium">자동</span>}
-                </div>
-                <h3 className="font-semibold text-gray-900 mb-1">{s.title}</h3>
-                <p className="text-sm text-gray-600 leading-relaxed">{s.desc}</p>
+// ─── CopyButton Component ─────────────────────────────────────────────────────
+
+function CopyButton({
+  text,
+  size = "md",
+  position = "inline",
+  label,
+  onCopy,
+}: CopyButtonProps & { onCopy?: (success: boolean) => void }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const success = await copyToClipboard(text);
+      onCopy?.(success);
+      if (success) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    },
+    [text, onCopy]
+  );
+
+  const sizeClasses =
+    size === "sm"
+      ? "w-6 h-6 text-xs"
+      : "w-8 h-8 text-sm";
+
+  const positionClasses =
+    position === "overlay"
+      ? "absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+      : "relative flex-shrink-0";
+
+  return (
+    <button
+      onClick={handleCopy}
+      aria-label={label ?? "Copy to clipboard"}
+      title={copied ? "Copied!" : "Copy to clipboard"}
+      className={`
+        ${positionClasses}
+        ${sizeClasses}
+        inline-flex items-center justify-center rounded-lg
+        bg-gray-800 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600
+        border border-gray-700 dark:border-gray-600
+        text-gray-400 hover:text-gray-100
+        transition-all duration-150 cursor-pointer
+        focus:outline-none focus:ring-2 focus:ring-gray-500
+        z-10
+      `}
+    >
+      {copied ? "✅" : "📋"}
+    </button>
+  );
+}
+
+// ─── CopyField Component ──────────────────────────────────────────────────────
+
+function CopyField({
+  label,
+  value,
+  sensitive = false,
+  size = "md",
+  onCopy,
+}: CopyFieldProps & { onCopy?: (success: boolean) => void }) {
+  const [revealed, setRevealed] = useState(false);
+  const displayValue = sensitive && !revealed ? "•".repeat(Math.min(value.length, 32)) : value;
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+        {label}
+      </span>
+      <div className="group relative flex items-center gap-2 bg-gray-900 dark:bg-gray-950 border border-gray-800 dark:border-gray-700 rounded-xl px-4 py-3">
+        <span className="font-mono text-sm text-gray-300 dark:text-gray-200 truncate flex-1 select-all">
+          {displayValue}
+        </span>
+        {sensitive && (
+          <button
+            onClick={() => setRevealed((r) => !r)}
+            className="text-xs text-gray-500 hover:text-gray-300 transition-colors px-1"
+            aria-label={revealed ? "Hide value" : "Reveal value"}
+          >
+            {revealed ? "🙈" : "👁️"}
+          </button>
+        )}
+        <CopyButton text={value} size={size} position="inline" onCopy={onCopy} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Inline Code Snippet ──────────────────────────────────────────────────────
+
+function InlineCode({
+  code,
+  onCopy,
+}: {
+  code: string;
+  onCopy?: (success: boolean) => void;
+}) {
+  return (
+    <span className="group relative inline-flex items-center gap-1.5">
+      <code className="bg-gray-800 dark:bg-gray-900 text-green-400 font-mono text-sm px-2 py-0.5 rounded-lg border border-gray-700 dark:border-gray-700">
+        {code}
+      </code>
+      <CopyButton text={code} size="sm" position="inline" onCopy={onCopy} />
+    </span>
+  );
+}
+
+// ─── Endpoint Row ─────────────────────────────────────────────────────────────
+
+function EndpointRow({
+  method,
+  endpoint,
+  description,
+  onCopy,
+}: TableRow & { onCopy?: (success: boolean, value: string) => void }) {
+  const methodColors: Record<string, string> = {
+    GET: "text-blue-400 bg-blue-400/10 border-blue-400/30",
+    POST: "text-green-400 bg-green-400/10 border-green-400/30",
+    PATCH: "text-yellow-400 bg-yellow-400/10 border-yellow-400/30",
+    DELETE: "text-red-400 bg-red-400/10 border-red-400/30",
+  };
+
+  return (
+    <tr className="group border-b border-gray-800 dark:border-gray-800 hover:bg-gray-800/40 dark:hover:bg-gray-800/30 transition-colors">
+      <td className="py-3 px-4">
+        <span
+          className={`inline-block font-mono text-xs font-bold px-2 py-1 rounded-lg border ${
+            methodColors[method] ?? "text-gray-400 bg-gray-800 border-gray-700"
+          }`}
+        >
+          {method}
+        </span>
+      </td>
+      <td className="py-3 px-4">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-sm text-gray-300 dark:text-gray-200 truncate max-w-xs">
+            {endpoint}
+          </span>
+          <CopyButton
+            text={endpoint}
+            size="sm"
+            position="inline"
+            onCopy={(s) => onCopy?.(s, endpoint)}
+          />
+        </div>
+      </td>
+      <td className="py-3 px-4 text-sm text-gray-400 dark:text-gray-500">{description}</td>
+    </tr>
+  );
+}
+
+// ─── Section Card ─────────────────────────────────────────────────────────────
+
+function SectionCard({
+  title,
+  subtitle,
+  badge,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  badge?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl bg-gray-900 dark:bg-gray-900 border border-gray-800 dark:border-gray-800 overflow-hidden shadow-xl">
+      <div className="px-6 py-5 border-b border-gray-800 dark:border-gray-800 flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h2 className="text-base font-bold text-white">{title}</h2>
+            {badge && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-700 text-gray-300 border border-gray-600">
+                {badge}
+              </span>
+            )}
+          </div>
+          {subtitle && (
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-500">{subtitle}</p>
+          )}
+        </div>
+      </div>
+      <div className="px-6 py-5">{children}</div>
+    </section>
+  );
+}
+
+// ─── Storybook-style Showcase Card ───────────────────────────────────────────
+
+function ShowcaseCard({
+  label,
+  description,
+  children,
+}: {
+  label: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-gray-800 dark:border-gray-700 overflow-hidden">
+      <div className="px-4 py-3 bg-gray-800/60 dark:bg-gray-800/40 border-b border-gray-800 dark:border-gray-700 flex items-center justify-between">
+        <span className="text-xs font-bold text-gray-300 tracking-wide">{label}</span>
+        <span className="text-xs text-gray-500">{description}</span>
+      </div>
+      <div className="px-6 py-5 bg-gray-900/50 dark:bg-gray-900/30 flex items-center gap-3 flex-wrap">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+const API_ENDPOINTS: TableRow[] = [
+  { method: "GET", endpoint: "https://api.notion.com/v1/pages", description: "Retrieve a page object" },
+  { method: "POST", endpoint: "https://api.notion.com/v1/pages", description: "Create a new page" },
+  { method: "PATCH", endpoint: "https://api.notion.com/v1/pages/:id", description: "Update page properties" },
+  { method: "GET", endpoint: "https://api.notion.com/v1/databases/:id", description: "Retrieve a database" },
+  { method: "DELETE", endpoint: "https://api.notion.com/v1/blocks/:id", description: "Delete a block" },
+];
+
+export default function WorkersPage() {
+  const { toasts, addToast } = useToast();
+
+  const handleCopy = useCallback(
+    (success: boolean, context?: string) => {
+      if (success) {
+        addToast(`Copied${context ? ` "${context.slice(0, 28)}${context.length > 28 ? "…" : ""}"` : ""} to clipboard`, "success");
+      } else {
+        addToast("Failed to copy — please copy manually", "error");
+      }
+    },
+    [addToast]
+  );
+
+  // Inject keyframe animation
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.innerHTML = `
+      @keyframes fade-in {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
+    `;
+    document.head.appendChild(style);
+    return () => { document.head.removeChild(style); };
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-gray-950 dark:bg-gray-950 text-white">
+      <div className="max-w-4xl mx-auto px-4 py-12 flex flex-col gap-8">
+
+        {/* Header */}
+        <header className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center text-xl">
+              📋
+            </div>
+            <div>
+              <h1 className="text-2xl font-extrabold tracking-tight text-white">Copy 기능 추가</h1>
+              <p className="text-sm text-gray-500 mt-0.5">Universal clipboard copy for API endpoints, tokens, code, and table data</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 mt-1">
+            {["CopyButton Component", "Overlay & Inline", "Toast Feedback", "Clipboard Fallback"].map((tag) => (
+              <span key={tag} className="text-xs px-3 py-1 rounded-full bg-gray-800 border border-gray-700 text-gray-400">
+                {tag}
+              </span>
+            ))}
+          </div>
+        </header>
+
+        {/* ── Section 1: CopyButton Storybook Showcase ── */}
+        <SectionCard
+          title="CopyButton Component"
+          subtitle="Reusable component with size and position variants — props: text, size (sm/md), position (inline/overlay)"
+          badge="Storybook"
+        >
+          <div className="flex flex-col gap-4">
+            <ShowcaseCard label="size=&quot;md&quot; position=&quot;inline&quot;" description="Default">
+              <span className="text-sm text-gray-400">Click to copy:</span>
+              <CopyButton
+                text="YOUR_API_KEY"
+                size="md"
+                position="inline"
+                label="Copy API key"
+                onCopy={(s) => handleCopy(s, "YOUR_API_KEY")}
+              />
+            </ShowcaseCard>
+
+            <ShowcaseCard label="size=&quot;sm&quot; position=&quot;inline&quot;" description="Compact">
+              <span className="text-sm text-gray-400">Small variant:</span>
+              <CopyButton
+                text="npm install notion-sdk"
+                size="sm"
+                position="inline"
+                label="Copy command"
+                onCopy={(s) => handleCopy(s, "npm install notion-sdk")}
+              />
+            </ShowcaseCard>
+
+            <ShowcaseCard label="position=&quot;overlay&quot;" description="Hover to reveal button">
+              <div className="group relative flex items-center bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 w-full min-w-60">
+                <span className="font-mono text-sm text-gray-300 flex-1">
+                  process.env.NOTION_SECRET
+                </span>
+                <CopyButton
+                  text="process.env.NOTION_SECRET"
+                  size="sm"
+                  position="overlay"
+                  onCopy={(s) => handleCopy(s, "process.env.NOTION_SECRET")}
+                />
+              </div>
+              <span className="text-xs text-gray-600 ml-2">← hover the field</span>
+            </ShowcaseCard>
+          </div>
+        </SectionCard>
+
+        {/* ── Section 2: Authentication — Token / Secret Fields ── */}
+        <SectionCard
+          title="Authentication"
+          subtitle="Sensitive credential fields with reveal toggle and one-click copy"
+          badge="Auth Page"
+        >
+          <div className="flex flex-col gap-4">
+            <CopyField
+              label="Integration Token"
+              value="YOUR_NOTION_INTEGRATION_TOKEN"
+              sensitive
+              size="md"
+              onCopy={(s) => handleCopy(s, "Integration Token")}
+            />
+            <CopyField
+              label="OAuth Client Secret"
+              value="YOUR_OAUTH_CLIENT_SECRET"
+              sensitive
+              size="md"
+              onCopy={(s) => handleCopy(s, "OAuth Client Secret")}
+            />
+            <CopyField
+              label="Webhook Signing Secret"
+              value="YOUR_WEBHOOK_SIGNING_SECRET"
+              sensitive
+              size="md"
+              onCopy={(s) => handleCopy(s, "Webhook Signing Secret")}
+            />
+            <CopyField
+              label="OAuth Client ID"
+              value="YOUR_OAUTH_CLIENT_ID"
+              sensitive={false}
+              size="sm"
+              onCopy={(s) => handleCopy(s, "OAuth Client ID")}
+            />
+          </div>
+        </SectionCard>
+
+        {/* ── Section 3: Quickstart — Config Values ── */}
+        <SectionCard
+          title="Quickstart"
+          subtitle="Configuration values and IDs used throughout the integration setup"
+          badge="Quickstart Page"
+        >
+          <div className="flex flex-col gap-4">
+            <CopyField
+              label="Database ID"
+              value="YOUR_NOTION_DATABASE_ID"
+              size="md"
+              onCopy={(s) => handleCopy(s, "Database ID")}
+            />
+            <CopyField
+              label="Page ID"
+              value="YOUR_NOTION_PAGE_ID"
+              size="md"
+              onCopy={(s) => handleCopy(s, "Page ID")}
+            />
+            <CopyField
+              label="Notion API Base URL"
+              value="https://api.notion.com/v1"
+              size="md"
+              onCopy={(s) => handleCopy(s, "API Base URL")}
+            />
+
+            {/* Inline code snippets */}
+            <div className="flex flex-col gap-3 pt-2">
+              <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+                Inline Code Snippets
+              </span>
+              <div className="flex flex-wrap gap-3 items-center">
+                <InlineCode
+                  code="notion-version: 2022-06-28"
+                  onCopy={(s) => handleCopy(s, "notion-version header")}
+                />
+                <InlineCode
+                  code="Content-Type: application/json"
+                  onCopy={(s) => handleCopy(s, "Content-Type header")}
+                />
+                <InlineCode
+                  code="Bearer YOUR_TOKEN"
+                  onCopy={(s) => handleCopy(s, "Bearer token format")}
+                />
               </div>
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+        </SectionCard>
 
-      {/* Code Example */}
-      <section className="mb-16">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">코드 예제</h2>
-        <p className="text-sm text-gray-500 mb-6">GitHub PR이 merge되면 Notion PRD 상태를 자동으로 업데이트하는 Worker입니다.</p>
-        <pre className="bg-gray-950 text-gray-100 rounded-xl p-5 text-sm overflow-x-auto leading-relaxed">
-          <code>{`import { Worker } from "@notionhq/workers";
-import * as j from "@notionhq/workers/schema-builder";
+        {/* ── Section 4: API Reference — Endpoint Table ── */}
+        <SectionCard
+          title="API Reference"
+          subtitle="Click the copy icon beside any endpoint URL to copy it to your clipboard"
+          badge="API Ref Page"
+        >
+          <div className="overflow-x-auto rounded-xl border border-gray-800 dark:border-gray-800">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-gray-800 dark:border-gray-800 bg-gray-800/50">
+                  <th className="py-3 px-4 text-xs font-bold uppercase tracking-widest text-gray-500 w-24">
+                    Method
+                  </th>
+                  <th className="py-3 px-4 text-xs font-bold uppercase tracking-widest text-gray-500">
+                    Endpoint URL
+                  </th>
+                  <th className="py-3 px-4 text-xs font-bold uppercase tracking-widest text-gray-500">
+                    Description
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {API_ENDPOINTS.map((row, i) => (
+                  <EndpointRow
+                    key={i}
+                    {...row}
+                    onCopy={(s, v) => handleCopy(s, v)}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
 
-const worker = new Worker();
-export default worker;
-
-worker.tool("updatePrdOnMerge", {
-  title: "Update PRD on PR Merge",
-  description: "PR이 merge되면 Notion PRD 상태를 Implemented로 업데이트합니다.",
-  schema: j.object({
-    pageId:        j.string().describe("PRD 페이지 ID"),
-    prUrl:         j.string().describe("merge된 GitHub PR URL"),
-    commitSummary: j.string().describe("커밋 요약"),
-  }),
-  execute: async ({ pageId, prUrl, commitSummary }, { notion }) => {
-    await notion.pages.update({
-      page_id: pageId,
-      properties: {
-        "상태":          { status: { name: "Implemented" } },
-        "GitHub PR":     { url: prUrl },
-        "Commit Summary": { rich_text: [{ text: { content: commitSummary } }] },
-      },
-    });
-    return "PRD updated successfully";
-  },
-});`}</code>
-        </pre>
-      </section>
-
-      {/* Capabilities */}
-      <section className="mb-16">
-        <h2 className="text-2xl font-bold text-gray-900 mb-8">Capabilities</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          {capabilities.map((c) => (
-            <div key={c.title} className="border border-gray-200 rounded-2xl p-6 hover:shadow-sm transition-shadow">
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-2xl">{c.icon}</span>
+        {/* ── Section 5: Fallback Info ── */}
+        <SectionCard
+          title="Browser Compatibility"
+          subtitle="Clipboard API support and fallback strategy"
+          badge="Implementation"
+        >
+          <div className="flex flex-col gap-3">
+            {[
+              {
+                icon: "✅",
+                label: "navigator.clipboard.writeText()",
+                note: "Modern browsers — used by default",
+                color: "text-green-400",
+              },
+              {
+                icon: "⚡",
+                label: "document.execCommand('copy')",
+                note: "Fallback for older / restricted environments",
+                color: "text-yellow-400",
+              },
+              {
+                icon: "🔔",
+                label: "Toast Notifications",
+                note: "Success & error feedback, auto-dismiss after 3s",
+                color: "text-blue-400",
+              },
+              {
+                icon: "🎯",
+                label: "Absolute positioning (overlay mode)",
+                note: "Copy button never shifts content layout",
+                color: "text-purple-400",
+              },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="flex items-start gap-3 p-3 rounded-xl bg-gray-800/50 dark:bg-gray-800/30 border border-gray-800"
+              >
+                <span className="text-lg mt-0.5">{item.icon}</span>
                 <div>
-                  <h3 className="font-semibold text-gray-900">{c.title}</h3>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${c.color}`}>{c.badge}</span>
+                  <p className={`text-sm font-semibold font-mono ${item.color}`}>{item.label}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{item.note}</p>
                 </div>
               </div>
-              <p className="text-sm text-gray-600 leading-relaxed">{c.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </SectionCard>
 
-      {/* Getting Started */}
-      <section className="mb-10">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">시작하기</h2>
-        <div className="space-y-4">
-          {[
-            { label: "1. CLI 설치", code: "npm install -g @notionhq/ntn" },
-            { label: "2. 워크스페이스 연결", code: "ntn login" },
-            { label: "3. 배포", code: "ntn workers deploy" },
-          ].map(({ label, code }) => (
-            <div key={label}>
-              <p className="text-sm font-medium text-gray-700 mb-2">{label}</p>
-              <pre className="bg-gray-950 text-gray-100 rounded-xl p-4 text-sm overflow-x-auto">
-                <code>{code}</code>
-              </pre>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <div className="p-6 bg-gray-50 rounded-2xl border border-gray-200">
-        <h3 className="font-semibold text-gray-900 mb-2">더 알아보기</h3>
-        <p className="text-sm text-gray-600 mb-4">Workers SDK 전체 레퍼런스와 예제는 공식 문서에서 확인하세요.</p>
-        <div className="flex flex-wrap gap-3">
-          <a href="https://developers.notion.com/docs/workers" target="_blank" rel="noopener noreferrer" className="inline-block bg-black text-white text-sm px-5 py-2.5 rounded-full hover:bg-gray-800 transition-colors">공식 문서 →</a>
-          <Link href="/docs" className="inline-block border border-gray-300 text-gray-700 text-sm px-5 py-2.5 rounded-full hover:bg-gray-50 transition-colors">Core Concepts</Link>
-        </div>
+        {/* Footer */}
+        <footer className="text-center text-xs text-gray-700 dark:text-gray-700 py-4">
+          CopyButton · app/components/CopyButton.tsx · Works across API Reference, Auth &amp; Quickstart pages
+        </footer>
       </div>
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} />
     </div>
   );
 }
