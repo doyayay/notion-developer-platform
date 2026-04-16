@@ -1,179 +1,173 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { Search, Clock, AlertCircle, ChevronDown, Filter, ArrowUpDown } from 'lucide-react';
 
-interface CodeBlock {
-  language: string;
-  code: string;
-  title?: string;
+interface SearchResult {
+  id: string;
+  type: 'page' | 'db' | 'file';
+  title: string;
+  path: string;
+  preview: string;
+  lastModified: string;
+  author: string;
+  relevance: number;
 }
 
-const codeBlocks: CodeBlock[] = [
-  {
-    language: 'bash',
-    title: 'Worker 생성',
-    code: `wrangler generate my-worker
-cd my-worker
-npm install`,
-  },
-  {
-    language: 'typescript',
-    title: 'Worker 핸들러',
-    code: `export default {
-  async fetch(request: Request): Promise<Response> {
-    return new Response('Hello from Worker!', {
-      headers: { 'Content-Type': 'text/plain' },
-    });
-  },
-};`,
-  },
-  {
-    language: 'bash',
-    title: 'Worker 배포',
-    code: `wrangler deploy`,
-  },
-  {
-    language: 'typescript',
-    title: '환경 변수 사용',
-    code: `interface Env {
-  API_KEY: string;
-  DATABASE_URL: string;
+interface RecentItem {
+  id: string;
+  title: string;
+  type: 'page' | 'db' | 'file';
+  timestamp: string;
 }
 
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const apiKey = env.API_KEY;
-    return new Response(\`API Key: \${apiKey}\`);
-  },
-};`,
+const mockSearchResults: SearchResult[] = [
+  {
+    id: '1',
+    type: 'page',
+    title: '검색 기능 개발 가이드',
+    path: '/docs/features/search',
+    preview: '전역 검색을 통해 서비스 내 모든 정보를 빠르게 찾을 수 있습니다. 키워드 기반의 효율적인...',
+    lastModified: '2024-01-15',
+    author: '김철수',
+    relevance: 0.98,
   },
   {
-    language: 'json',
-    title: 'wrangler.toml',
-    code: `name = "my-worker"
-type = "service"
-main = "src/index.ts"
-
-[env.production]
-routes = [
-  { pattern = "example.com/*", zone_name = "example.com" }
-]`,
+    id: '2',
+    type: 'db',
+    title: '사용자 가이드 - 검색 활용법',
+    path: '/database/guides',
+    preview: '검색 결과를 효과적으로 활용하기 위한 팁과 트릭을 소개합니다. 필터와 정렬 옵션을...',
+    lastModified: '2024-01-10',
+    author: '이영희',
+    relevance: 0.95,
+  },
+  {
+    id: '3',
+    type: 'page',
+    title: '검색 API 문서',
+    path: '/api/docs/search',
+    preview: '검색 엔드포인트의 요청/응답 형식을 정의합니다. 쿼리 파라미터와 필터 옵션을...',
+    lastModified: '2024-01-08',
+    author: '박민준',
+    relevance: 0.92,
+  },
+  {
+    id: '4',
+    type: 'file',
+    title: 'Search_Implementation.pdf',
+    path: '/files/documents',
+    preview: 'PDF 파일 - 검색 기능 구현 사양서입니다. 기술 스펙과 예상 일정이 포함되어...',
+    lastModified: '2024-01-05',
+    author: '최수진',
+    relevance: 0.88,
   },
 ];
 
-function CodeBlock({ language, code, title }: CodeBlock) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  };
-
-  return (
-    <div className="mb-6 rounded-2xl bg-gray-950 dark:bg-gray-900 overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-4 bg-gray-900 dark:bg-gray-800 border-b border-gray-800 dark:border-gray-700">
-        {title && <span className="text-sm font-semibold text-gray-300 dark:text-gray-400">{title}</span>}
-        <div className="flex items-center gap-3 ml-auto">
-          <span className="text-xs text-gray-400 dark:text-gray-500">{language}</span>
-          <button
-            onClick={handleCopy}
-            className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-200 dark:text-gray-300 bg-gray-800 dark:bg-gray-700 hover:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-600 dark:focus:ring-gray-500"
-            aria-label="Copy code to clipboard"
-          >
-            {copied ? (
-              <>
-                <svg className="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fillRule="evenodd"
-                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                Copied!
-              </>
-            ) : (
-              <>
-                <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-                Copy
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-      <pre className="p-6 overflow-x-auto">
-        <code className="text-sm text-gray-100 dark:text-gray-200 font-mono leading-relaxed whitespace-pre">
-          {code}
-        </code>
-      </pre>
-    </div>
-  );
-}
+const mockRecentSearches = ['검색 기능', '사용자 가이드', 'API 문서'];
+const mockRecentItems: RecentItem[] = [
+  { id: '1', title: '검색 기능 개발 가이드', type: 'page', timestamp: '2024-01-15' },
+  { id: '2', title: '사용자 가이드 - 검색 활용법', type: 'db', timestamp: '2024-01-14' },
+];
 
 export default function WorkersPage() {
-  return (
-    <main className="min-h-screen bg-white dark:bg-gray-950 py-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-12">
-          <h1 className="text-4xl sm:text-5xl font-bold text-gray-950 dark:text-white mb-4">
-            Workers 시작하기
-          </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-300">
-            Cloudflare Workers를 사용하여 엣지에서 JavaScript를 실행하세요. 아래 코드 예제를 통해 기본 설정 방법을 알아보세요.
-          </p>
-        </div>
+  const [searchQuery, setSearchQuery] = useState('');
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [sortBy, setSortBy] = useState<'relevance' | 'recent' | 'title'>('relevance');
+  const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set(['page', 'db']));
+  const [selectedFilters, setSelectedFilters] = useState({
+    types: new Set<string>(['page', 'db', 'file']),
+    authors: new Set<string>(),
+    period: 'all',
+  });
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout>();
 
-        {/* Introduction Section */}
-        <div className="mb-12 p-6 rounded-2xl bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
-          <h2 className="text-2xl font-bold text-gray-950 dark:text-white mb-3">개요</h2>
-          <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-            Cloudflare Workers는 Cloudflare의 글로벌 네트워크에서 직접 코드를 실행할 수 있는 서버리스 플랫폼입니다.
-            낮은 지연 시간과 높은 성능으로 전 세계 사용자에게 빠른 응답을 제공합니다.
-          </p>
-        </div>
+  const typeLabels: Record<string, string> = {
+    page: '페이지',
+    db: 'DB 항목',
+    file: '첨부파일',
+  };
 
-        {/* Code Blocks */}
-        <div className="space-y-8">
-          <section>
-            <h2 className="text-2xl font-bold text-gray-950 dark:text-white mb-6">설치 및 설정</h2>
-            <CodeBlock
-              language={codeBlocks[0].language}
-              title={codeBlocks[0].title}
-              code={codeBlocks[0].code}
-            />
-          </section>
+  const typeColors: Record<string, string> = {
+    page: 'bg-blue-500/20 text-blue-400 dark:bg-blue-500/30',
+    db: 'bg-purple-500/20 text-purple-400 dark:bg-purple-500/30',
+    file: 'bg-orange-500/20 text-orange-400 dark:bg-orange-500/30',
+  };
 
-          <section>
-            <h2 className="text-2xl font-bold text-gray-950 dark:text-white mb-6">기본 핸들러</h2>
-            <CodeBlock
-              language={codeBlocks[1].language}
-              title={codeBlocks[1].title}
-              code={codeBlocks[1].code}
-            />
-          </section>
+  const highlightKeyword = (text: string, keyword: string) => {
+    if (!keyword) return text;
+    const regex = new RegExp(`(${keyword})`, 'gi');
+    const parts = text.split(regex);
+    return parts.map((part, i) =>
+      regex.test(part) ? <span key={i} className="bg-yellow-400/30 font-semibold dark:bg-yellow-500/40">{part}</span> : part
+    );
+  };
 
-          <section>
-            <h2 className="text-2xl font-bold text-gray-950 dark:text-white mb-6">배포</h2>
-            <CodeBlock
-              language={codeBlocks[2].language}
-              title={codeBlocks[2].title}
-              code={codeBlocks[2].code}
-            />
-          </section>
-        </div>
-      </div>
-    </main>
-  );
-}
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+    clearTimeout(debounceTimerRef.current);
+
+    if (!query.trim()) {
+      setResults([]);
+      setShowResults(false);
+      setSelectedIndex(-1);
+      return;
+    }
+
+    setIsSearching(true);
+    setShowResults(true);
+
+    debounceTimerRef.current = setTimeout(() => {
+      const filtered = mockSearchResults
+        .filter(result =>
+          (result.title.toLowerCase().includes(query.toLowerCase()) ||
+            result.preview.toLowerCase().includes(query.toLowerCase())) &&
+          selectedFilters.types.has(result.type)
+        )
+        .sort((a, b) => {
+          if (sortBy === 'relevance') return b.relevance - a.relevance;
+          if (sortBy === 'recent') return new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime();
+          return a.title.localeCompare(b.title);
+        });
+
+      setResults(filtered);
+      setSelectedIndex(filtered.length > 0 ? 0 : -1);
+      setIsSearching(false);
+    }, 300);
+  }, [selectedFilters.types, sortBy]);
+
+  const groupedResults = useCallback(() => {
+    const grouped: Record<string, SearchResult[]> = {};
+    results.forEach(result => {
+      if (!grouped[result.type]) grouped[result.type] = [];
+      grouped[result.type].push(result);
+    });
+    return grouped;
+  }, [results]);
+
+  const toggleTypeFilter = (type: string) => {
+    const newTypes = new Set(selectedFilters.types);
+    if (newTypes.has(type)) {
+      newTypes.delete(type);
+    } else {
+      newTypes.add(type);
+    }
+    setSelectedFilters({ ...selectedFilters, types: newTypes });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setShowResults(false);
+      setSearchQuery('');
+      setSelectedIndex(-1);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev + 1) % Math.max(results.length, 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev - 1 + Math.max(results.length, 1)) % Math.max(results.length, 1));
+    } else if (e.key === 'Enter' && selectedIndex
