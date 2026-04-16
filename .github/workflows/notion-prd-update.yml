@@ -13,7 +13,7 @@ jobs:
       - name: Extract Notion page ID from PR body
         id: extract
         run: |
-          PAGE_ID=$(echo "${{ github.event.pull_request.body }}" | grep -oP '(?<=<!-- notion-prd-page-id: )[\w-]+(?= -->)')
+          PAGE_ID=$(echo "${{ github.event.pull_request.body }}" | grep -oP '(?<=<!-- notion-prd-page-id: )[\w-]+(?= -->)' || true)
           echo "page_id=$PAGE_ID" >> $GITHUB_OUTPUT
           echo "pr_url=${{ github.event.pull_request.html_url }}" >> $GITHUB_OUTPUT
           echo "commit_summary=${{ github.event.pull_request.title }}" >> $GITHUB_OUTPUT
