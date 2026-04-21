@@ -1,54 +1,54 @@
 const endpoints = [
   {
-    group: "Pages",
+    group: "페이지(Pages)",
     items: [
-      { method: "GET", path: "/v1/pages/{page_id}", desc: "Retrieve a page" },
-      { method: "POST", path: "/v1/pages", desc: "Create a page" },
-      { method: "PATCH", path: "/v1/pages/{page_id}", desc: "Update page properties" },
+      { method: "GET", path: "/v1/pages/{page_id}", desc: "페이지 조회" },
+      { method: "POST", path: "/v1/pages", desc: "페이지 생성" },
+      { method: "PATCH", path: "/v1/pages/{page_id}", desc: "페이지 속성 업데이트" },
     ],
   },
   {
-    group: "Databases",
+    group: "데이터베이스(Databases)",
     items: [
-      { method: "GET", path: "/v1/databases/{database_id}", desc: "Retrieve a database" },
-      { method: "POST", path: "/v1/databases", desc: "Create a database" },
-      { method: "PATCH", path: "/v1/databases/{database_id}", desc: "Update a database" },
-      { method: "POST", path: "/v1/databases/{database_id}/query", desc: "Query a database" },
+      { method: "GET", path: "/v1/databases/{database_id}", desc: "데이터베이스 조회" },
+      { method: "POST", path: "/v1/databases", desc: "데이터베이스 생성" },
+      { method: "PATCH", path: "/v1/databases/{database_id}", desc: "데이터베이스 업데이트" },
+      { method: "POST", path: "/v1/databases/{database_id}/query", desc: "데이터베이스 쿼리" },
     ],
   },
   {
-    group: "Blocks",
+    group: "블록(Blocks)",
     items: [
-      { method: "GET", path: "/v1/blocks/{block_id}", desc: "Retrieve a block" },
-      { method: "GET", path: "/v1/blocks/{block_id}/children", desc: "Retrieve block children" },
-      { method: "PATCH", path: "/v1/blocks/{block_id}", desc: "Update a block" },
-      { method: "PATCH", path: "/v1/blocks/{block_id}/children", desc: "Append block children" },
-      { method: "DELETE", path: "/v1/blocks/{block_id}", desc: "Delete a block" },
+      { method: "GET", path: "/v1/blocks/{block_id}", desc: "블록 조회" },
+      { method: "GET", path: "/v1/blocks/{block_id}/children", desc: "자식 블록 조회" },
+      { method: "PATCH", path: "/v1/blocks/{block_id}", desc: "블록 업데이트" },
+      { method: "PATCH", path: "/v1/blocks/{block_id}/children", desc: "자식 블록 추가" },
+      { method: "DELETE", path: "/v1/blocks/{block_id}", desc: "블록 삭제" },
     ],
   },
   {
-    group: "Users",
+    group: "사용자(Users)",
     items: [
-      { method: "GET", path: "/v1/users", desc: "List all users" },
-      { method: "GET", path: "/v1/users/{user_id}", desc: "Retrieve a user" },
-      { method: "GET", path: "/v1/users/me", desc: "Retrieve your token's bot user" },
+      { method: "GET", path: "/v1/users", desc: "모든 사용자 목록" },
+      { method: "GET", path: "/v1/users/{user_id}", desc: "사용자 조회" },
+      { method: "GET", path: "/v1/users/me", desc: "봇 사용자 조회" },
     ],
   },
   {
-    group: "Comments",
+    group: "댓글(Comments)",
     items: [
-      { method: "GET", path: "/v1/comments", desc: "Retrieve comments" },
-      { method: "POST", path: "/v1/comments", desc: "Create a comment" },
+      { method: "GET", path: "/v1/comments", desc: "댓글 조회" },
+      { method: "POST", path: "/v1/comments", desc: "댓글 생성" },
     ],
   },
   {
-    group: "Search",
-    items: [{ method: "POST", path: "/v1/search", desc: "Search by title" }],
+    group: "검색(Search)",
+    items: [{ method: "POST", path: "/v1/search", desc: "제목으로 검색" }],
   },
   {
-    group: "Authentication",
+    group: "인증(Authentication)",
     items: [
-      { method: "POST", path: "/v1/oauth/token", desc: "Create a token (OAuth)" },
+      { method: "POST", path: "/v1/oauth/token", desc: "토큰 생성 (OAuth)" },
     ],
   },
 ];
@@ -64,10 +64,10 @@ export default function ApiReference() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-16">
       <div className="mb-10">
-        <span className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Reference</span>
-        <h1 className="text-4xl font-bold text-gray-900 mt-2 mb-4">API Reference</h1>
+        <span className="text-sm font-semibold text-gray-400 uppercase tracking-wide">레퍼런스</span>
+        <h1 className="text-4xl font-bold text-gray-900 mt-2 mb-4">API 레퍼런스</h1>
         <p className="text-lg text-gray-600">
-          All requests use the base URL <code className="bg-gray-100 px-2 py-0.5 rounded text-base font-mono">https://api.notion.com</code> and require a <code className="bg-gray-100 px-2 py-0.5 rounded text-base font-mono">Bearer</code> token in the <code className="bg-gray-100 px-2 py-0.5 rounded text-base font-mono">Authorization</code> header.
+          모든 요청은 기본 URL <code className="bg-gray-100 px-2 py-0.5 rounded text-base font-mono">https://api.notion.com</code>을 사용하며 <code className="bg-gray-100 px-2 py-0.5 rounded text-base font-mono">Authorization</code> 헤더에 <code className="bg-gray-100 px-2 py-0.5 rounded text-base font-mono">Bearer</code> 토큰이 필요합니다.
         </p>
       </div>
 
@@ -106,15 +106,15 @@ Content-Type: application/json`}</code>
       {/* Rate limits */}
       <div className="mt-14 grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div className="p-6 bg-gray-50 rounded-2xl border border-gray-200">
-          <h3 className="font-semibold text-gray-900 mb-2">Rate Limits</h3>
+          <h3 className="font-semibold text-gray-900 mb-2">속도 제한(Rate Limits)</h3>
           <p className="text-sm text-gray-600">
-            The API is rate limited to <strong>3 requests per second</strong> per integration. Exceeding this returns <code className="bg-gray-100 px-1 rounded">429 Too Many Requests</code>. Use exponential backoff to retry.
+            API는 통합당 <strong>초당 3개의 요청</strong>으로 제한됩니다. 초과 시 <code className="bg-gray-100 px-1 rounded">429 Too Many Requests</code>가 반환됩니다. 지수 백오프(exponential backoff)로 재시도하세요.
           </p>
         </div>
         <div className="p-6 bg-gray-50 rounded-2xl border border-gray-200">
-          <h3 className="font-semibold text-gray-900 mb-2">Versioning</h3>
+          <h3 className="font-semibold text-gray-900 mb-2">버전 관리(Versioning)</h3>
           <p className="text-sm text-gray-600">
-            Always send the <code className="bg-gray-100 px-1 rounded">Notion-Version</code> header. The current stable version is <code className="bg-gray-100 px-1 rounded">2022-06-28</code>.
+            항상 <code className="bg-gray-100 px-1 rounded">Notion-Version</code> 헤더를 보내세요. 현재 안정 버전은 <code className="bg-gray-100 px-1 rounded">2022-06-28</code>입니다.
           </p>
         </div>
       </div>

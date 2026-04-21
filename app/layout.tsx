@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Notion Developer Platform",
-  description: "Build powerful integrations and automations with the Notion Developer Platform.",
+  title: "Notion Developer Platform Demo",
+  description: "Notion Developer Platform으로 강력한 통합 및 자동화를 구축하세요.",
 };
 
 export default function RootLayout({
@@ -26,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="ko"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-white text-gray-900">

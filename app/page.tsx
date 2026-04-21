@@ -4,40 +4,40 @@ const features = [
   {
     icon: "🔌",
     title: "REST API",
-    description: "Query databases, create pages, update blocks, and manage users through a clean REST API.",
+    description: "데이터베이스 조회, 페이지 생성, 블록 업데이트, 사용자 관리를 깔끔한 REST API로 처리하세요.",
   },
   {
     icon: "🤖",
-    title: "Integrations",
-    description: "Build internal integrations to connect Notion to your existing tools and workflows.",
+    title: "통합(Integrations)",
+    description: "기존 도구 및 워크플로우와 Notion을 연결하는 내부 통합을 구축하세요.",
   },
   {
     icon: "🔒",
     title: "OAuth 2.0",
-    description: "Let users authorize your app with their Notion workspace using standard OAuth flows.",
+    description: "표준 OAuth 플로우를 사용하여 사용자가 자신의 Notion 워크스페이스에 앱 권한을 부여할 수 있게 하세요.",
   },
   {
     icon: "📦",
-    title: "Official SDKs",
-    description: "Get started fast with the official JavaScript/TypeScript SDK and community SDKs.",
+    title: "공식 SDK",
+    description: "공식 JavaScript/TypeScript SDK와 커뮤니티 SDK로 빠르게 시작하세요.",
   },
   {
     icon: "⚡",
-    title: "Webhooks",
-    description: "React to changes in real time with webhook events for pages, databases, and comments.",
+    title: "웹훅(Webhooks)",
+    description: "페이지, 데이터베이스, 댓글에 대한 웹훅 이벤트로 변경 사항에 실시간 반응하세요.",
   },
   {
     icon: "🏗️",
     title: "Block API",
-    description: "Read and write any Notion block type — paragraphs, code, tables, embeds, and more.",
+    description: "단락, 코드, 표, 임베드 등 모든 Notion 블록 타입을 읽고 쓰세요.",
   },
 ];
 
 const sections = [
-  { href: "/quickstart", label: "Quickstart", desc: "Create your first integration in minutes." },
-  { href: "/authentication", label: "Authentication", desc: "Internal integrations and OAuth 2.0." },
-  { href: "/docs", label: "Core Concepts", desc: "Pages, databases, blocks, and users." },
-  { href: "/api-reference", label: "API Reference", desc: "Full endpoint and type reference." },
+  { href: "/quickstart", label: "빠른 시작", desc: "몇 분 안에 첫 번째 통합을 만들어보세요." },
+  { href: "/authentication", label: "인증", desc: "내부 통합과 OAuth 2.0." },
+  { href: "/docs", label: "핵심 개념", desc: "페이지, 데이터베이스, 블록, 사용자." },
+  { href: "/api-reference", label: "API 레퍼런스", desc: "전체 엔드포인트 및 타입 레퍼런스." },
 ];
 
 export default function Home() {
@@ -47,27 +47,27 @@ export default function Home() {
       <section className="bg-gradient-to-b from-gray-50 to-white border-b border-gray-100 py-24 px-6 text-center">
         <div className="max-w-3xl mx-auto">
           <div className="inline-block bg-black text-white text-xs font-semibold px-3 py-1 rounded-full mb-6 tracking-wide uppercase">
-            Developer Platform
+            Developer Platform Demo
           </div>
           <h1 className="text-5xl font-bold text-gray-900 leading-tight mb-6">
-            Build on Notion
+            Notion 위에서 구축하세요
           </h1>
           <p className="text-xl text-gray-600 mb-10 leading-relaxed">
-            The Notion Developer Platform gives you the tools to integrate,
-            automate, and extend Notion — connecting it to the rest of your stack.
+            Notion Developer Platform은 Notion을 통합하고, 자동화하고, 확장하여
+            나머지 스택과 연결하는 도구를 제공합니다.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/quickstart"
               className="bg-black text-white px-6 py-3 rounded-full font-medium hover:bg-gray-800 transition-colors"
             >
-              Get Started →
+              시작하기 →
             </Link>
             <Link
               href="/api-reference"
               className="border border-gray-300 text-gray-700 px-6 py-3 rounded-full font-medium hover:bg-gray-50 transition-colors"
             >
-              API Reference
+              API 레퍼런스
             </Link>
           </div>
         </div>
@@ -75,9 +75,9 @@ export default function Home() {
 
       {/* Features Grid */}
       <section className="max-w-6xl mx-auto px-6 py-20">
-        <h2 className="text-3xl font-bold text-center text-gray-900 mb-4">Everything you need to build</h2>
+        <h2 className="text-3xl font-bold text-center text-gray-900 mb-4">구축에 필요한 모든 것</h2>
         <p className="text-center text-gray-500 mb-14 max-w-xl mx-auto">
-          A complete set of APIs and tooling to read, write, and react to data in any Notion workspace.
+          Notion 워크스페이스의 데이터를 읽고, 쓰고, 반응하는 완전한 API와 툴링 세트.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {features.map((f) => (
@@ -93,7 +93,7 @@ export default function Home() {
       {/* Navigation Cards */}
       <section className="bg-gray-50 border-t border-gray-100 py-20 px-6">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold text-gray-900 mb-10 text-center">Explore the docs</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-10 text-center">문서 탐색하기</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {sections.map((s) => (
               <Link

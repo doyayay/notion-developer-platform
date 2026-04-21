@@ -3,74 +3,74 @@ import Link from "next/link";
 const concepts = [
   {
     icon: "📄",
-    title: "Pages",
+    title: "페이지(Pages)",
     description:
-      "Pages are the core unit of content in Notion. They can contain any combination of blocks and can be nested inside other pages or databases.",
+      "페이지는 Notion 콘텐츠의 핵심 단위입니다. 모든 조합의 블록을 포함할 수 있으며 다른 페이지나 데이터베이스 안에 중첩될 수 있습니다.",
     details: [
-      "Fetch a page with GET /v1/pages/{page_id}",
-      "Create a page with POST /v1/pages",
-      "Update page properties with PATCH /v1/pages/{page_id}",
-      "Archive (soft-delete) a page by setting archived: true",
+      "GET /v1/pages/{page_id}로 페이지 가져오기",
+      "POST /v1/pages로 페이지 생성",
+      "PATCH /v1/pages/{page_id}로 페이지 속성 업데이트",
+      "archived: true로 페이지 보관(소프트 삭제)",
     ],
   },
   {
     icon: "🗄️",
-    title: "Databases",
+    title: "데이터베이스(Databases)",
     description:
-      "Databases are structured collections of pages. Each row is a page, and each column is a property with a defined type (text, number, select, date, relation, etc.).",
+      "데이터베이스는 페이지의 구조화된 컬렉션입니다. 각 행은 페이지이고, 각 열은 정의된 타입(텍스트, 숫자, 선택, 날짜, 관계 등)을 가진 속성입니다.",
     details: [
-      "Query a database with POST /v1/databases/{database_id}/query",
-      "Filter and sort results inline in the query body",
-      "Create or update database schema via PATCH /v1/databases/{database_id}",
-      "Database pages inherit the parent database's property schema",
+      "POST /v1/databases/{database_id}/query로 데이터베이스 조회",
+      "쿼리 본문에서 결과 필터링 및 정렬",
+      "PATCH /v1/databases/{database_id}로 데이터베이스 스키마 생성 또는 업데이트",
+      "데이터베이스 페이지는 부모 데이터베이스의 속성 스키마를 상속",
     ],
   },
   {
     icon: "🧱",
-    title: "Blocks",
+    title: "블록(Blocks)",
     description:
-      "Everything inside a page is a block — paragraphs, headings, images, code, to-do items, callouts, and more. Blocks can be nested to create rich layouts.",
+      "페이지 안의 모든 것은 블록입니다 — 단락, 헤딩, 이미지, 코드, 할 일 항목, 콜아웃 등. 블록은 중첩되어 풍부한 레이아웃을 만들 수 있습니다.",
     details: [
-      "List children with GET /v1/blocks/{block_id}/children",
-      "Append blocks with PATCH /v1/blocks/{block_id}/children",
-      "Update a block's content with PATCH /v1/blocks/{block_id}",
-      "Delete a block with DELETE /v1/blocks/{block_id}",
+      "GET /v1/blocks/{block_id}/children으로 자식 블록 목록 조회",
+      "PATCH /v1/blocks/{block_id}/children으로 블록 추가",
+      "PATCH /v1/blocks/{block_id}로 블록 내용 업데이트",
+      "DELETE /v1/blocks/{block_id}로 블록 삭제",
     ],
   },
   {
     icon: "👥",
-    title: "Users",
+    title: "사용자(Users)",
     description:
-      "The Users API lets you retrieve information about workspace members and bots. You can list all users or fetch a specific user by ID.",
+      "Users API를 통해 워크스페이스 멤버와 봇에 대한 정보를 가져올 수 있습니다. 모든 사용자를 나열하거나 ID로 특정 사용자를 가져올 수 있습니다.",
     details: [
-      "List all users with GET /v1/users",
-      "Get a specific user with GET /v1/users/{user_id}",
-      "Get the bot user for your integration with GET /v1/users/me",
-      "Users can be of type 'person' or 'bot'",
+      "GET /v1/users로 모든 사용자 목록 조회",
+      "GET /v1/users/{user_id}로 특정 사용자 가져오기",
+      "GET /v1/users/me로 통합의 봇 사용자 가져오기",
+      "사용자 타입은 'person' 또는 'bot'",
     ],
   },
   {
     icon: "💬",
-    title: "Comments",
+    title: "댓글(Comments)",
     description:
-      "Comments can be added to pages and inline on blocks. The Comments API lets you read and create comments programmatically.",
+      "댓글은 페이지와 블록 인라인에 추가할 수 있습니다. Comments API를 통해 프로그래밍 방식으로 댓글을 읽고 작성할 수 있습니다.",
     details: [
-      "Retrieve comments with GET /v1/comments",
-      "Create a comment with POST /v1/comments",
-      "Supports rich text formatting in comment bodies",
-      "Requires comment read/write capabilities enabled in integration settings",
+      "GET /v1/comments로 댓글 조회",
+      "POST /v1/comments로 댓글 작성",
+      "댓글 본문에서 리치 텍스트 포맷 지원",
+      "통합 설정에서 댓글 읽기/쓰기 권한 활성화 필요",
     ],
   },
   {
     icon: "🔍",
-    title: "Search",
+    title: "검색(Search)",
     description:
-      "The Search API searches all pages and databases shared with your integration. It supports filtering by object type and keyword queries.",
+      "Search API는 통합과 공유된 모든 페이지와 데이터베이스를 검색합니다. 객체 타입별 필터링과 키워드 쿼리를 지원합니다.",
     details: [
-      "POST /v1/search with a query string",
-      "Filter results to only pages or only databases",
-      "Results are sorted by last edited time by default",
-      "Only returns objects shared with your integration",
+      "쿼리 문자열과 함께 POST /v1/search",
+      "결과를 페이지 또는 데이터베이스로만 필터링",
+      "기본적으로 마지막 수정 시간 순으로 정렬",
+      "통합과 공유된 객체만 반환",
     ],
   },
 ];
@@ -79,10 +79,10 @@ export default function Docs() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-16">
       <div className="mb-12">
-        <span className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Documentation</span>
-        <h1 className="text-4xl font-bold text-gray-900 mt-2 mb-4">Core Concepts</h1>
+        <span className="text-sm font-semibold text-gray-400 uppercase tracking-wide">문서</span>
+        <h1 className="text-4xl font-bold text-gray-900 mt-2 mb-4">핵심 개념</h1>
         <p className="text-lg text-gray-600">
-          Understand the fundamental building blocks of the Notion API — from pages and databases to blocks and users.
+          페이지, 데이터베이스, 블록, 사용자 등 Notion API의 근본적인 구성 요소를 이해하세요.
         </p>
       </div>
 
@@ -107,15 +107,15 @@ export default function Docs() {
       </div>
 
       <div className="mt-14 p-6 bg-gray-50 rounded-2xl border border-gray-200">
-        <h3 className="font-semibold text-gray-900 mb-2">Ready to explore the API?</h3>
+        <h3 className="font-semibold text-gray-900 mb-2">API를 탐색할 준비가 됐나요?</h3>
         <p className="text-sm text-gray-600 mb-4">
-          Check the full endpoint reference for request/response shapes, error codes, and rate limits.
+          요청/응답 형태, 에러 코드, 속도 제한에 대한 전체 엔드포인트 레퍼런스를 확인하세요.
         </p>
         <Link
           href="/api-reference"
           className="inline-block bg-black text-white text-sm px-5 py-2.5 rounded-full hover:bg-gray-800 transition-colors"
         >
-          Go to API Reference →
+          API 레퍼런스로 이동 →
         </Link>
       </div>
     </div>

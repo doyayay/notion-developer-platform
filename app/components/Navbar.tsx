@@ -1,11 +1,11 @@
 import Link from "next/link";
 
 const links = [
-  { href: "/", label: "Home" },
-  { href: "/quickstart", label: "Quickstart" },
-  { href: "/authentication", label: "Authentication" },
-  { href: "/docs", label: "Docs" },
-  { href: "/api-reference", label: "API Reference" },
+  { href: "/", label: "홈" },
+  { href: "/quickstart", label: "빠른 시작" },
+  { href: "/authentication", label: "인증" },
+  { href: "/docs", label: "문서" },
+  { href: "/api-reference", label: "API 레퍼런스" },
 ];
 
 export default function Navbar() {
@@ -14,7 +14,7 @@ export default function Navbar() {
       <div className="max-w-6xl mx-auto px-6 flex items-center justify-between h-16">
         <Link href="/" className="flex items-center gap-2 font-semibold text-gray-900 text-lg">
           <span className="text-2xl">📝</span>
-          <span>Notion Dev Platform</span>
+          <span>Notion Dev Platform Demo</span>
         </Link>
         <nav className="flex items-center gap-6">
           {links.map((link) => (
@@ -32,7 +32,7 @@ export default function Navbar() {
             rel="noopener noreferrer"
             className="text-sm bg-black text-white px-4 py-2 rounded-full hover:bg-gray-800 transition-colors"
           >
-            Open Notion Docs ↗
+            공식 문서 열기 ↗
           </a>
         </nav>
       </div>
