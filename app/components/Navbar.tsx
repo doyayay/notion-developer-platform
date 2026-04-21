@@ -106,6 +106,7 @@ export default function Navbar() {
             Open Notion Docs ↗
           </a>
 
+          {/* Dark / Light mode toggle */}
           <DarkModeToggle />
         </nav>
       </div>

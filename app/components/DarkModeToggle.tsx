@@ -1,82 +1,77 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { Sun, Moon } from "lucide-react";
+import { useEffect, useState } from 'react';
+import { Sun, Moon } from 'lucide-react';
 
 export default function DarkModeToggle() {
   const [isDark, setIsDark] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Determine initial theme
-    const stored = localStorage.getItem("theme");
-    if (stored === "dark") {
-      setIsDark(true);
-      document.documentElement.classList.add("dark");
-    } else if (stored === "light") {
-      setIsDark(false);
-      document.documentElement.classList.remove("dark");
-    } else {
-      // Fall back to system preference
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      setIsDark(prefersDark);
-      if (prefersDark) {
-        document.documentElement.classList.add("dark");
-      } else {
-        document.documentElement.classList.remove("dark");
-      }
-    }
+    // Read current state from the <html> class (set by the inline script in layout)
+    const dark = document.documentElement.classList.contains('dark');
+    setIsDark(dark);
     setMounted(true);
   }, []);
 
   const toggle = () => {
-    const next = !isDark;
-    setIsDark(next);
-    if (next) {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("theme", "dark");
+    const html = document.documentElement;
+    if (html.classList.contains('dark')) {
+      html.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+      setIsDark(false);
     } else {
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("theme", "light");
+      html.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+      setIsDark(true);
     }
   };
 
   // Avoid hydration mismatch — render a placeholder until mounted
   if (!mounted) {
     return (
-      <span className="w-9 h-9 inline-block" aria-hidden="true" />
+      <div className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 animate-pulse" />
     );
   }
 
   return (
     <button
       onClick={toggle}
-      aria-label={isDark ? "라이트 모드로 전환" : "다크 모드로 전환"}
-      title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       className="
         relative flex items-center justify-center
         w-9 h-9 rounded-full
-        bg-gray-100 dark:bg-gray-800
+        bg-gray-100 hover:bg-gray-200
+        dark:bg-gray-800 dark:hover:bg-gray-700
         text-gray-700 dark:text-gray-300
-        hover:bg-gray-200 dark:hover:bg-gray-700
-        transition-colors duration-300
-        border border-gray-200 dark:border-gray-700
-        focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
-        focus-visible:ring-gray-500
+        transition-colors duration-200
+        focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500
       "
     >
       <span
         className="
           absolute inset-0 flex items-center justify-center
-          transition-opacity duration-300
-          opacity-100
-        "
+          transition-all duration-300
+          "
+        style={{
+          opacity: isDark ? 0 : 1,
+          transform: isDark ? 'rotate(-90deg) scale(0.5)' : 'rotate(0deg) scale(1)',
+        }}
       >
-        {isDark ? (
-          <Sun size={16} strokeWidth={2} />
-        ) : (
-          <Moon size={16} strokeWidth={2} />
-        )}
+        <Sun size={16} />
+      </span>
+      <span
+        className="
+          absolute inset-0 flex items-center justify-center
+          transition-all duration-300
+        "
+        style={{
+          opacity: isDark ? 1 : 0,
+          transform: isDark ? 'rotate(0deg) scale(1)' : 'rotate(90deg) scale(0.5)',
+        }}
+      >
+        <Moon size={16} />
       </span>
     </button>
   );
